@@ -15,12 +15,12 @@ int main() {
         {
             break;
         }
-        oko_begin_frame(okoshko);
+        oko_begin_drawing(okoshko);
         oko_clear(okoshko, 0x00);
         oko_fill_rect(okoshko, OKO_RECT(x, y, w, h), 0xFFFF0000);
         x += 1;
         y += 1;
-        oko_end_frame(okoshko);
+        oko_end_drawing(okoshko);
     }
 
     oko_destroy(okoshko);

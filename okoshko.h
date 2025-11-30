@@ -81,8 +81,8 @@ OKO_API void oko_destroy(oko_Window *win);
 OKO_API void oko_set_fps(oko_Window *win, i32 fps);
 OKO_API u8 oko_is_running(oko_Window *win);
 
-OKO_API void oko_begin_frame(oko_Window *win);
-OKO_API void oko_end_frame(oko_Window *win);
+OKO_API void oko_begin_drawing(oko_Window *win);
+OKO_API void oko_end_drawing(oko_Window *win);
 OKO_API void oko_poll_events(oko_Window *win);
 
 OKO_API void oko_clear(oko_Window *win, u32 color);

@@ -99,11 +99,11 @@ OKO_API u8 oko_is_running(oko_Window *win) {
     return win->running;
 }
 
-OKO_API void oko_begin_frame(oko_Window *win) {
+OKO_API void oko_begin_drawing(oko_Window *win) {
     oko_poll_events(win);
 }
 
-OKO_API void oko_end_frame(oko_Window *win) {
+OKO_API void oko_end_drawing(oko_Window *win) {
     memcpy(win->pixels, win->back_buffer, win->width * win->height * sizeof(u32));
 
 #ifdef _WIN32
@@ -237,14 +237,15 @@ OKO_API u8 oko_key_down(oko_Window *win, u8 key) {
 }
 
 OKO_API u8 oko_key_pressed(oko_Window *win, u8 key) {
-    if (win->keyboard.shift)
+    if (key >= 'A') // if uppercase
     {
-        u8 real_char = win->keyboard.keys[key] - 'a' + 'A'; // 'q' -> 'Q'
-        return real_char == key;
+        if (win->keyboard.shift)
+        {
+            key = key + 32; // convert to lowercase
+        }
     }
     return win->keyboard.keys[key];
 }
-
 
 OKO_API u8 oko_mouse_down(oko_Window *win, u8 button) {
     if (button == OKO_MOUSE_LEFT) return win->mouse.left;
