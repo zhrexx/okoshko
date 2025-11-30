@@ -30,6 +30,7 @@ Or as a backbone for window creation in other libraries
 - Games where high performance/fps are required
 
 ## Notes
+- It uses a system called Modules you can import a module from the modules directory then you need to define MODULE_SOMETHING_IMPLEMENTATION
 - It uses ARGB
 
 ## Quick Example

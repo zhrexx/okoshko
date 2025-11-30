@@ -237,7 +237,7 @@ OKO_API u8 oko_key_down(oko_Window *win, u8 key) {
 }
 
 OKO_API u8 oko_key_pressed(oko_Window *win, u8 key) {
-    if (key >= 'A') // if uppercase
+    if (key >= 'A' && key <= 'Z') // if uppercase
     {
         if (win->keyboard.shift)
         {

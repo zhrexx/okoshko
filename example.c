@@ -2,27 +2,25 @@
 
 #include "okoshko.h"
 
+#define MODULE_TI_IMPLEMENTATION
+#include "modules/text_input.h"
+
 int main() {
-    oko_Window *okoshko = oko_create("Hello, world!", 800, 600);
-    oko_set_fps(okoshko, 60);
+    oko_Window *win = oko_create("Example", 800, 600);
+    oko_set_fps(win, 60);
+    oko_TI in = ti_init();
 
-    u64 x = 0, y = 0;
-    u64 w = 100, h = 100;
-
-    while (oko_is_running(okoshko))
+    while (oko_is_running(win))
     {
-        if (oko_key_pressed(okoshko, 'Q'))
-        {
-            break;
-        }
-        oko_begin_drawing(okoshko);
-        oko_clear(okoshko, 0x00);
-        oko_fill_rect(okoshko, OKO_RECT(x, y, w, h), 0xFFFF0000);
-        x += 1;
-        y += 1;
-        oko_end_drawing(okoshko);
+        oko_begin_drawing(win);
+        oko_clear(win, 0x00);
+        ti_update(&in, win);
+
+        printf("Input: %s\n", in.buffer);
+
+        oko_end_drawing(win);
     }
 
-    oko_destroy(okoshko);
+    oko_destroy(win);
     return 0;
 }
