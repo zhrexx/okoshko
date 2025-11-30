@@ -89,7 +89,8 @@ typedef struct {
     oko_OsWindow osw;
     oko_Timer *timer;
     u64 target_frame_time;
-    u64 last_frame_time;
+    u64 frame_start_time;
+    u64 actual_frame_time;
 } oko_Window;
 
 #ifndef OKO_API
@@ -100,7 +101,8 @@ OKO_API void oko_init();
 
 OKO_API oko_Window* oko_create(const char *title, i32 width, i32 height);
 OKO_API void oko_destroy(oko_Window *win);
-OKO_API void oko_set_fps(oko_Window *win, i32 fps);
+OKO_API void oko_set_fps(oko_Window *win, u32 fps);
+OKO_API u32 oko_get_fps(oko_Window *win);
 OKO_API u8 oko_is_running(oko_Window *win);
 
 OKO_API void oko_begin_drawing(oko_Window *win);

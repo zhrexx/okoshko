@@ -150,3 +150,49 @@ char font8x8_basic[128][8] = {
     { 0x6E, 0x3B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+007E (~)
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}    // U+007F
 };
+#include "../okoshko.h"
+OKO_API oko_Font* oko_font_from_8x8(char font8x8[128][8]) {
+    oko_Font* font = (oko_Font*)malloc(sizeof(oko_Font));
+    if (!font) return NULL;
+
+    font->size = 8;
+    font->ascent = 6;
+    font->descent = 2;
+    font->lineGap = 2;
+    font->glyphCount = 128;
+
+    font->glyphs = (oko_Glyph*)malloc(sizeof(oko_Glyph) * 128);
+    if (!font->glyphs) {
+        free(font);
+        return NULL;
+    }
+
+    for (int i = 0; i < 128; i++) {
+        oko_Glyph* glyph = &font->glyphs[i];
+        glyph->character = i;
+        glyph->width = 8;
+        glyph->height = 8;
+        glyph->advance = 8;
+        glyph->offsetX = 0;
+        glyph->offsetY = 0;
+
+        glyph->bitmap = (unsigned char*)malloc(64);
+        if (!glyph->bitmap) {
+            for (int j = 0; j < i; j++) {
+                free(font->glyphs[j].bitmap);
+            }
+            free(font->glyphs);
+            free(font);
+            return NULL;
+        }
+
+        for (int y = 0; y < 8; y++) {
+            unsigned char row = font8x8[i][y];
+            for (int x = 0; x < 8; x++) {
+                glyph->bitmap[y * 8 + x] = (row & (1 << x)) ? 255 : 0;
+            }
+        }
+    }
+
+    return font;
+}

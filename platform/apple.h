@@ -88,6 +88,7 @@ OKO_API oko_Window* oko_create(const char *title, i32 width, i32 height) {
     win->vsync = 1;
     win->target_frame_time = 16;
     win->timer = okoshko_timer_create();
+    win->frame_start_time = okoshko_timer_now(win->timer);
 
     id app = msg(objc_getClass("NSApplication"), "sharedApplication");
     msg1(app, "setActivationPolicy:", 0);

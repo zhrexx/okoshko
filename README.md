@@ -40,7 +40,7 @@ Or as a backbone for window creation in other libraries
 int main() {
     // Creates a window with default framerate limit of 60fps
     oko_Window *win = oko_create("Example Window", 800, 600);
-    
+    oko_init(); // recommended to init but not required but be aware usage of oko_format then could segfault
     while (oko_is_running(win)) {
         oko_begin_drawing(win);
         // Clear with black

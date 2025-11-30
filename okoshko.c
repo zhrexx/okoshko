@@ -79,7 +79,11 @@ OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     u64 elapsed_sec = now.tv_sec - timer->start.tv_sec;
-    u64 elapsed_nsec = now.tv_nsec - timer->start.tv_nsec;
+    i64 elapsed_nsec = now.tv_nsec - timer->start.tv_nsec;
+    if (elapsed_nsec < 0) {
+        elapsed_sec--;
+        elapsed_nsec += 1000000000;
+    }
     return elapsed_sec * 1000 + elapsed_nsec / 1000000;
 }
 
@@ -100,8 +104,21 @@ OKO_API void okoshko_timer_sleep(u64 ms) {
 #include "platform/linux_x11.h"
 #endif
 
-OKO_API void oko_set_fps(oko_Window *win, i32 fps) {
-    win->target_frame_time = 1000 / fps;
+OKO_API void oko_set_fps(oko_Window *win, u32 fps) {
+    if (fps <= 0)
+    {
+        win->vsync = false;
+        win->target_frame_time = 0;
+    } else
+    {
+        win->vsync = true;
+        win->target_frame_time = 1000 / fps;
+    }
+}
+
+OKO_API u32 oko_get_fps(oko_Window *win) {
+    if (win->actual_frame_time <= 0) return 0;
+    return (u32)(1000 / win->actual_frame_time);
 }
 
 OKO_API u8 oko_is_running(oko_Window *win) {
@@ -109,6 +126,7 @@ OKO_API u8 oko_is_running(oko_Window *win) {
 }
 
 OKO_API void oko_begin_drawing(oko_Window *win) {
+    win->frame_start_time = okoshko_timer_now(win->timer);
     oko_poll_events(win);
 }
 
@@ -133,14 +151,18 @@ OKO_API void oko_end_drawing(oko_Window *win) {
     XFlush(win->osw.dpy);
 #endif
 
-    if (win->vsync) {
-        u64 current_time = okoshko_timer_now(win->timer);
-        u64 elapsed = current_time - win->last_frame_time;
-        if (elapsed < win->target_frame_time) {
-            okoshko_timer_sleep(win->target_frame_time - elapsed);
-            current_time = okoshko_timer_now(win->timer);
-        }
-        win->last_frame_time = current_time;
+    u64 frame_end_time = okoshko_timer_now(win->timer);
+    u64 elapsed = frame_end_time - win->frame_start_time;
+
+    if (win->target_frame_time > 0 && elapsed < win->target_frame_time) {
+        u64 sleep_time = win->target_frame_time - elapsed;
+        okoshko_timer_sleep(sleep_time);
+        frame_end_time = okoshko_timer_now(win->timer);
+    }
+
+    win->actual_frame_time = frame_end_time - win->frame_start_time;
+    if (win->actual_frame_time < 1) {
+        win->actual_frame_time = 1;
     }
 }
 
@@ -380,11 +402,11 @@ OKO_API u8 oko_key_down(oko_Window *win, u8 key) {
 }
 
 OKO_API u8 oko_key_pressed(oko_Window *win, u8 key) {
-    if (key >= 'A' && key <= 'Z') // if uppercase
+    if (key >= 'A' && key <= 'Z')
     {
         if (win->keyboard.shift)
         {
-            key = key + 32; // convert to lowercase
+            key = key + 32;
         }
     }
     return win->keyboard.keys[key];
