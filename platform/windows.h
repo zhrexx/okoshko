@@ -1,6 +1,6 @@
 #pragma once
 #include "../okoshko.h"
-#ifdef _WIN32
+#ifdef OKO_WINDOWS
 
 static int oko_win32_key_to_index(WPARAM vk) {
     if (vk >= 'A' && vk <= 'Z') return vk;

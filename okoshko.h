@@ -6,15 +6,18 @@
 #include "helpers/allocator.h"
 
 #ifdef __APPLE__
+#define OKO_APPLE
 #include <CoreGraphics/CoreGraphics.h>
 #include <objc/NSObjCRuntime.h>
 #include <objc/objc-runtime.h>
 #elif defined(_WIN32)
+#define OKO_WINDOWS
 #include <windows.h>
 #elif defined(__linux__)
+#define OKO_LINUX
 #define _DEFAULT_SOURCE 1
-#include <X11/XKBlib.h>
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/keysym.h>
 #include <time.h>
 #else

@@ -2,7 +2,7 @@
 
 #include "../okoshko.h"
 
-#ifdef __APPLE__
+#ifdef OKO_APPLE
 
 extern id objc_msgSend(id, SEL, ...);
 extern id objc_getClass(const char *);

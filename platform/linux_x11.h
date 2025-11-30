@@ -2,7 +2,7 @@
 
 #include "../okoshko.h"
 
-#ifdef __linux__
+#ifdef OKO_LINUX
 
 static int oko_x11_key_to_index(KeySym ks) {
     if (ks >= XK_a && ks <= XK_z) return (i32)ks - XK_a + 'a';

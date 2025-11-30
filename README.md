@@ -2,12 +2,15 @@
 
 **Okoshko** (окошко) — Russian for "little window" — is a minimalist window library for portable software rendering.
 
-> The name draws inspiration from [zserge/fenster](https://github.com/zserge/fenster), which means "window" in German. Continuing the multilingual tradition, we chose the Russian diminutive for its charm and approachability.
+> The name draws inspiration from [zserge/fenster](https://github.com/zserge/fenster), where "fenster" means "window" in German.
 
 ## What is Okoshko?
 
 A lightweight yet powerful, highly portable window library that takes advance of 
-Software Rendering for minimal amound of platform-dependent code which increases portability.
+Software Rendering for a minimal amount of platform-dependent code (3 things: create window, poll events, close window) which increases portability.
+
+Currently, we support Linux (X11), Windows (winapi) and macOS (Obj-C)
+planned are also FreeBSD, terminal, Android, iOS
 
 ## Philosophy
 
@@ -40,7 +43,7 @@ Or as a backbone for window creation in other libraries
 int main() {
     // Creates a window with default framerate limit of 60fps
     oko_Window *win = oko_create("Example Window", 800, 600);
-    oko_init(); // recommended to init but not required but be aware usage of oko_format then could segfault
+    oko_init(); // recommended to init but not required, but be aware usage of oko_format then could segfault
     while (oko_is_running(win)) {
         oko_begin_drawing(win);
         // Clear with black
@@ -61,7 +64,27 @@ int main() {
 
 ## License
 
-[Your license here]
+MIT License
+
+Copyright (c) 2025 Jan Moretz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Contributing
 
@@ -69,3 +92,5 @@ Contributions welcome! Please feel free to submit issues and pull requests.
 
 ## TODO
 - Implement loading ttf files
+- Add basic elements
+- More modules
