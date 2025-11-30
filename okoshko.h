@@ -3,6 +3,7 @@
 
 #include "helpers/st.h"
 #include "helpers/log.h"
+#include "helpers/allocator.h"
 
 #ifdef __APPLE__
 #include <CoreGraphics/CoreGraphics.h>
@@ -55,6 +56,25 @@ typedef struct {
 } oko_OsWindow;
 
 typedef struct {
+    char character;
+    int width;
+    int height;
+    int advance;
+    int offsetX;
+    int offsetY;
+    unsigned char* bitmap;
+} oko_Glyph;
+
+typedef struct {
+    int size;
+    int ascent;
+    int descent;
+    int lineGap;
+    int glyphCount;
+    oko_Glyph* glyphs;
+} oko_Font;
+
+typedef struct {
     char *title;
     i32 width, height;
     u32 *pixels;
@@ -76,6 +96,8 @@ typedef struct {
 #define OKO_API extern
 #endif
 
+OKO_API void oko_init();
+
 OKO_API oko_Window* oko_create(const char *title, i32 width, i32 height);
 OKO_API void oko_destroy(oko_Window *win);
 OKO_API void oko_set_fps(oko_Window *win, i32 fps);
@@ -90,10 +112,12 @@ OKO_API void oko_set_pixel(oko_Window *win, i32 x, i32 y, u32 color);
 OKO_API u32 oko_get_pixel(oko_Window *win, i32 x, i32 y);
 
 OKO_API void oko_fill_rect(oko_Window *win, oko_Rect rect, u32 color);
+OKO_API void oko_fill_circle(oko_Window *win, i32 cx, i32 cy, i32 radius, u32 color);
+
 OKO_API void oko_draw_rect(oko_Window *win, oko_Rect rect, u32 color);
 OKO_API void oko_draw_line(oko_Window *win, i32 x0, i32 y0, i32 x1, i32 y1, u32 color);
 OKO_API void oko_draw_circle(oko_Window *win, i32 cx, i32 cy, i32 radius, u32 color);
-OKO_API void oko_fill_circle(oko_Window *win, i32 cx, i32 cy, i32 radius, u32 color);
+OKO_API void oko_draw_text(oko_Window *win, const char *text, oko_Font *font, i32 x, i32 y, float scale, u32 color);
 
 OKO_API u8 oko_key_down(oko_Window *win, u8 key);
 OKO_API u8 oko_key_pressed(oko_Window *win, u8 key);
@@ -101,6 +125,14 @@ OKO_API u8 oko_mouse_down(oko_Window *win, u8 button);
 
 OKO_API u64 oko_time_ms(oko_Window *win);
 OKO_API void oko_sleep(u64 ms);
+
+OKO_API oko_Glyph oko_create_glyph(u8** bitmap, i32 width, i32 height,
+                              i32 startX, u8 character);
+OKO_API oko_Font* oko_bitmap_to_font(u8** bitmap, i32 totalWidth, i32 totalHeight,
+                       i32 glyphWidth, i32 glyphCount, u8 startChar);
+OKO_API void oko_free_font(oko_Font* font);
+
+OKO_API char *oko_format(const char *format, ...);
 
 #include "helpers/macros.h"
 

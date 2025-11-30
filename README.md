@@ -66,3 +66,6 @@ int main() {
 ## Contributing
 
 Contributions welcome! Please feel free to submit issues and pull requests.
+
+## TODO
+- Implement loading ttf files

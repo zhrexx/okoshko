@@ -1,6 +1,15 @@
+#define OKO_TEMP_ALLOCATOR_IMPLEMENTATION
 #include "okoshko.h"
+
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+static oko_temp_allocator ta;
+
+OKO_API void oko_init() {
+    ta = oko_temp_init(64*1024*1024);
+}
 
 #ifdef __APPLE__
 #include <mach/mach_time.h>
@@ -169,6 +178,16 @@ OKO_API void oko_fill_rect(oko_Window *win, oko_Rect rect, u32 color) {
     }
 }
 
+OKO_API void oko_fill_circle(oko_Window *win, i32 cx, i32 cy, i32 radius, u32 color) {
+    for (i32 y = -radius; y <= radius; y++) {
+        for (i32 x = -radius; x <= radius; x++) {
+            if (x * x + y * y <= radius * radius) {
+                oko_set_pixel(win, cx + x, cy + y, color);
+            }
+        }
+    }
+}
+
 OKO_API void oko_draw_rect(oko_Window *win, oko_Rect rect, u32 color) {
     oko_draw_line(win, rect.x, rect.y, rect.x + rect.w, rect.y, color);
     oko_draw_line(win, rect.x + rect.w, rect.y, rect.x + rect.w, rect.y + rect.h, color);
@@ -222,13 +241,137 @@ OKO_API void oko_draw_circle(oko_Window *win, i32 cx, i32 cy, i32 radius, u32 co
     }
 }
 
-OKO_API void oko_fill_circle(oko_Window *win, i32 cx, i32 cy, i32 radius, u32 color) {
-    for (i32 y = -radius; y <= radius; y++) {
-        for (i32 x = -radius; x <= radius; x++) {
-            if (x * x + y * y <= radius * radius) {
-                oko_set_pixel(win, cx + x, cy + y, color);
+OKO_API oko_Glyph oko_create_glyph(u8** bitmap, i32 width, i32 height,
+                              i32 startX, u8 character) {
+    oko_Glyph glyph;
+    glyph.character = character;
+    glyph.width = width;
+    glyph.height = height;
+    glyph.advance = width;
+    glyph.offsetX = 0;
+    glyph.offsetY = 0;
+
+    glyph.bitmap = (unsigned char*)malloc(width * height);
+    if (glyph.bitmap) {
+        for (int y = 0; y < height; y++) {
+            memcpy(&glyph.bitmap[y * width], &bitmap[y][startX], width);
+        }
+    }
+
+    return glyph;
+}
+
+OKO_API oko_Font* oko_bitmap_to_font(u8** bitmap, i32 totalWidth, i32 totalHeight,
+                       i32 glyphWidth, i32 glyphCount, u8 startChar) {
+    if (!bitmap || totalWidth <= 0 || totalHeight <= 0 ||
+        glyphWidth <= 0 || glyphCount <= 0) {
+        return NULL;
+    }
+
+    oko_Font* font = (oko_Font*)malloc(sizeof(oko_Font));
+    if (!font) return NULL;
+
+    font->size = totalHeight;
+    font->ascent = (int)(totalHeight * 0.8);
+    font->descent = totalHeight - font->ascent;
+    font->lineGap = (int)(totalHeight * 0.2);
+    font->glyphCount = glyphCount;
+
+    font->glyphs = (oko_Glyph*)malloc(sizeof(oko_Glyph) * glyphCount);
+    if (!font->glyphs) {
+        free(font);
+        return NULL;
+    }
+
+    for (int i = 0; i < glyphCount; i++) {
+        int startX = i * glyphWidth;
+        font->glyphs[i] = oko_create_glyph(bitmap, glyphWidth, totalHeight,
+                                      startX, startChar + i);
+    }
+
+    return font;
+}
+
+OKO_API void oko_free_font(oko_Font* font) {
+    if (!font) return;
+
+    if (font->glyphs) {
+        for (int i = 0; i < font->glyphCount; i++) {
+            free(font->glyphs[i].bitmap);
+        }
+        free(font->glyphs);
+    }
+    free(font);
+}
+
+OKO_API void oko_draw_text(oko_Window *win, const char *text, oko_Font *font, i32 x, i32 y, float scale, u32 color) {
+    if (!win || !text || !font || !font->glyphs) return;
+
+    i32 cursorX = x;
+    i32 cursorY = y;
+
+    u8 r = (color >> 16) & 0xFF;
+    u8 g = (color >> 8) & 0xFF;
+    u8 b = color & 0xFF;
+
+    for (const char *c = text; *c != '\0'; c++) {
+        if (*c == '\n') {
+            cursorX = x;
+            cursorY += (i32)((font->size + font->lineGap) * scale);
+            continue;
+        }
+
+        oko_Glyph *glyph = NULL;
+        for (i32 i = 0; i < font->glyphCount; i++) {
+            if (font->glyphs[i].character == *c) {
+                glyph = &font->glyphs[i];
+                break;
             }
         }
+
+        if (!glyph || !glyph->bitmap) {
+            cursorX += (i32)((f32)font->size * 0.5f * scale);
+            continue;
+        }
+
+        i32 scaledWidth = (i32)(glyph->width * scale);
+        i32 scaledHeight = (i32)(glyph->height * scale);
+
+        for (i32 gy = 0; gy < scaledHeight; gy++) {
+            for (i32 gx = 0; gx < scaledWidth; gx++) {
+                i32 srcX = (i32)(gx / scale);
+                i32 srcY = (i32)(gy / scale);
+
+                if (srcX >= glyph->width || srcY >= glyph->height) continue;
+
+                u8 alpha = glyph->bitmap[srcY * glyph->width + srcX];
+
+                if (alpha == 0) continue;
+
+                i32 px = cursorX + gx + (i32)(glyph->offsetX * scale);
+                i32 py = cursorY + gy + (i32)(glyph->offsetY * scale);
+
+                if (px < 0 || px >= win->width || py < 0 || py >= win->height) continue;
+
+                if (alpha == 255) {
+                    win->back_buffer[py * win->width + px] = color;
+                } else {
+                    u32 bg = win->back_buffer[py * win->width + px];
+                    u8 bgR = (bg >> 16) & 0xFF;
+                    u8 bgG = (bg >> 8) & 0xFF;
+                    u8 bgB = bg & 0xFF;
+
+                    float a = alpha / 255.0f;
+                    u8 outR = (u8)(r * a + bgR * (1.0f - a));
+                    u8 outG = (u8)(g * a + bgG * (1.0f - a));
+                    u8 outB = (u8)(b * a + bgB * (1.0f - a));
+
+                    win->back_buffer[py * win->width + px] = (outR << 16) | (outG << 8) | outB;
+                }
+            }
+        }
+
+        cursorX += (i32)(glyph->advance * scale);
     }
 }
 
@@ -260,4 +403,17 @@ OKO_API u64 oko_time_ms(oko_Window *win) {
 
 OKO_API void oko_sleep(u64 ms) {
     okoshko_timer_sleep(ms);
+}
+
+OKO_API char *oko_format(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    char *str = oko_temp_alloc(&ta, 512, 8);
+
+    if (!vsprintf(str, format, args))
+    {
+        return NULL;
+    }
+    va_end(args);
+    return str;
 }
