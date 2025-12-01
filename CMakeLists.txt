@@ -6,5 +6,6 @@ set(CMAKE_C_STANDARD 23)
 add_library(okoshko STATIC okoshko.c
         helpers/log.c)
 
-add_executable(example example.c)
+add_executable(example example.c
+        modules/input.h)
 target_link_libraries(example PUBLIC okoshko X11)

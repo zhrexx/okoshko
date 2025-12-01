@@ -139,6 +139,8 @@ OKO_API void oko_free_font(oko_Font* font);
 
 OKO_API char *oko_format(const char *format, ...);
 
+OKO_API oko_temp_allocator *oko_get_temp_allocator();
+
 #include "helpers/macros.h"
 
 #endif

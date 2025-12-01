@@ -1,4 +1,3 @@
-// TI = Text Input
 #pragma once
 
 // TODO: implement special chars and , .
@@ -30,13 +29,13 @@ typedef struct {
     u8 was_pressed;
 } oko_Button;
 
-static inline oko_Button oko_button_create(i32 x, i32 y, i32 w, i32 h, const char *text, oko_Font *font);
-static inline u8 oko_button_update(oko_Window *win, oko_Button *btn);
+static oko_Button oko_button_create(i32 x, i32 y, i32 w, i32 h, const char *text, oko_Font *font);
+static u8 oko_button_update(oko_Window *win, oko_Button *btn);
 
 static void oko_button_draw(oko_Window *win, oko_Button *btn);
 
 #ifdef OKO_BUTTON_IMPLEMENTATION
-static inline oko_Button oko_button_create(i32 x, i32 y, i32 w, i32 h, const char *text, oko_Font *font) {
+static oko_Button oko_button_create(i32 x, i32 y, i32 w, i32 h, const char *text, oko_Font *font) {
     oko_Button btn = {0};
     btn.bounds = (oko_Rect){x, y, w, h};
     btn.text = text;
@@ -54,7 +53,7 @@ static inline oko_Button oko_button_create(i32 x, i32 y, i32 w, i32 h, const cha
     return btn;
 }
 
-static inline u8 oko_button_update(oko_Window *win, oko_Button *btn) {
+static u8 oko_button_update(oko_Window *win, oko_Button *btn) {
     i32 mx = win->mouse.x;
     i32 my = win->mouse.y;
 

@@ -105,21 +105,20 @@ OKO_API void okoshko_timer_sleep(u64 ms) {
 #endif
 
 OKO_API void oko_set_fps(oko_Window *win, u32 fps) {
-    if (fps <= 0)
-    {
+    if (fps <= 0) {
         win->vsync = false;
         win->target_frame_time = 0;
-    } else
-    {
+    } else {
         win->vsync = true;
-        win->target_frame_time = 1000 / fps;
+        win->target_frame_time = (u64)((1000000.0 / fps) + 0.5);
     }
 }
 
 OKO_API u32 oko_get_fps(oko_Window *win) {
     if (win->actual_frame_time <= 0) return 0;
-    return (u32)(1000 / win->actual_frame_time);
+    return (u32)((1000000.0 / win->actual_frame_time) + 0.5);
 }
+
 
 OKO_API u8 oko_is_running(oko_Window *win) {
     return win->running;
@@ -152,15 +151,28 @@ OKO_API void oko_end_drawing(oko_Window *win) {
 #endif
 
     u64 frame_end_time = okoshko_timer_now(win->timer);
-    u64 elapsed = frame_end_time - win->frame_start_time;
+    u64 elapsed_us = (frame_end_time - win->frame_start_time) * 1000;
 
-    if (win->target_frame_time > 0 && elapsed < win->target_frame_time) {
-        u64 sleep_time = win->target_frame_time - elapsed;
-        okoshko_timer_sleep(sleep_time);
-        frame_end_time = okoshko_timer_now(win->timer);
+    if (win->target_frame_time > 0) {
+        u64 spin_threshold = 1000;
+
+        if (elapsed_us + spin_threshold < win->target_frame_time) {
+            u64 sleep_time_ms = (win->target_frame_time - elapsed_us - spin_threshold) / 1000;
+            if (sleep_time_ms > 0) {
+                okoshko_timer_sleep(sleep_time_ms);
+            }
+        }
+
+        while (1) {
+            frame_end_time = okoshko_timer_now(win->timer);
+            elapsed_us = (frame_end_time - win->frame_start_time) * 1000;
+            if (elapsed_us >= win->target_frame_time) {
+                break;
+            }
+        }
     }
 
-    win->actual_frame_time = frame_end_time - win->frame_start_time;
+    win->actual_frame_time = elapsed_us;
     if (win->actual_frame_time < 1) {
         win->actual_frame_time = 1;
     }
@@ -431,6 +443,7 @@ OKO_API char *oko_format(const char *format, ...) {
     va_list args;
     va_start(args, format);
     char *str = oko_temp_alloc(&ta, 512, 8);
+    if (!str) return NULL;
 
     if (!vsprintf(str, format, args))
     {
@@ -438,4 +451,8 @@ OKO_API char *oko_format(const char *format, ...) {
     }
     va_end(args);
     return str;
+}
+
+OKO_API oko_temp_allocator *oko_get_temp_allocator() {
+    return &ta;
 }
