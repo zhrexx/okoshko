@@ -142,4 +142,81 @@ OKO_API void oko_poll_events(oko_Window *win) {
         }
     }
 }
+
+// TIMER STUFF
+struct oko_Timer {
+    struct timespec start;
+};
+
+OKO_API oko_Timer *okoshko_timer_create() {
+    oko_Timer *timer = malloc(sizeof(oko_Timer));
+    clock_gettime(CLOCK_MONOTONIC, &timer->start);
+    return timer;
+}
+
+OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    u64 elapsed_sec = now.tv_sec - timer->start.tv_sec;
+    i64 elapsed_nsec = now.tv_nsec - timer->start.tv_nsec;
+    if (elapsed_nsec < 0) {
+        elapsed_sec--;
+        elapsed_nsec += 1000000000;
+    }
+    return elapsed_sec * 1000 + elapsed_nsec / 1000000;
+}
+
+OKO_API void okoshko_timer_sleep(u64 ms) {
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;
+    ts.tv_nsec = (ms % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
+// AUDIO STUFF
+int snd_pcm_open(void **, const char *, i32, i32);
+int snd_pcm_set_params(void *pcm, i32 format, i32 access, i32 channels, i32 rate, i32 soft_resample, i32 latency);
+int snd_pcm_avail(void *);
+int snd_pcm_writei(void *, const void *, u64);
+int snd_pcm_recover(void *, i32, i32);
+int snd_pcm_close(void *);
+
+struct oko_OsAudioSystem {
+    void *pcm;
+    f32 buf[OKO_AUDIO_BUFFER_SIZE];
+    u64 pos;
+};
+
+OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate, u64 buffer_size) {
+    oko_OsAudioSystem *os_audio = malloc(sizeof(oko_OsAudioSystem));
+    if (snd_pcm_open(&os_audio->pcm, "default", 0, 0)) return NULL;
+    int fmt = (*(unsigned char *)(&(uint16_t){1})) ? 14 : 15; // Checking Endiness
+    if (!snd_pcm_set_params(os_audio->pcm, fmt, 3, 1, sample_rate, 1, 100000))
+    {
+        snd_pcm_close(os_audio->pcm);
+        free(os_audio);
+        return NULL;
+    }
+    return os_audio;
+}
+
+OKO_API void oko_os_audio_destroy(oko_OsAudioSystem *os_audio) {
+    snd_pcm_close(os_audio->pcm);
+}
+
+OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem *os_audio) {
+    i32 n = snd_pcm_avail(os_audio->pcm);
+    if (n < 0) snd_pcm_recover(os_audio->pcm, n, 0);
+    return n;
+}
+
+OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem *os_audio, const f32 *buffer, u64 n) {
+    int r = snd_pcm_writei(os_audio->pcm, buffer, n);
+    if (r < 0)
+        snd_pcm_recover(os_audio->pcm, r, 0);
+    return r;
+}
+
+
+
 #endif

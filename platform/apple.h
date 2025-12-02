@@ -203,4 +203,54 @@ OKO_API void oko_poll_events(oko_Window *win) {
     msg(pool, "drain");
 }
 
+#include <mach/mach_time.h>
+
+struct oko_Timer {
+    mach_timebase_info_data_t timebase;
+    uint64_t start;
+};
+
+OKO_API oko_Timer *okoshko_timer_create() {
+    oko_Timer *timer = malloc(sizeof(oko_Timer));
+    mach_timebase_info(&timer->timebase);
+    timer->start = mach_absolute_time();
+    return timer;
+}
+
+OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
+    uint64_t now = mach_absolute_time();
+    uint64_t elapsed = now - timer->start;
+    return (elapsed * timer->timebase.numer) / (timer->timebase.denom * 1000000);
+}
+
+OKO_API void okoshko_timer_sleep(u64 ms) {
+    struct timespec ts;
+    ts.tv_sec = ms / 1000;
+    ts.tv_nsec = (ms % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
+// TODO: implement OS audio
+
+struct oko_OsAudioSystem {
+
+};
+
+OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate, u64 buffer_size) {
+
+}
+
+OKO_API void oko_os_audio_destroy(oko_OsAudioSystem *os_audio) {
+
+}
+
+OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem *os_audio) {
+
+}
+
+OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem *os_audio, const f32 *buffer, u64 frame_count) {
+
+}
+
+
 #endif

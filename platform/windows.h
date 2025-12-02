@@ -148,4 +148,48 @@ OKO_API void oko_poll_events(oko_Window *win) {
 
     win->showed = !IsIconic(win->osw.hwnd);
 }
+
+struct oko_Timer {
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER start;
+};
+
+OKO_API oko_Timer *okoshko_timer_create() {
+    oko_Timer *timer = malloc(sizeof(oko_Timer));
+    QueryPerformanceFrequency(&timer->frequency);
+    QueryPerformanceCounter(&timer->start);
+    return timer;
+}
+
+OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return (u64)(((now.QuadPart - timer->start.QuadPart) * 1000) / timer->frequency.QuadPart);
+}
+
+OKO_API void okoshko_timer_sleep(u64 ms) {
+    Sleep((DWORD)ms);
+}
+
+// TODO: implement OS audio
+struct oko_OsAudioSystem {
+
+};
+
+OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate, u64 buffer_size) {
+
+}
+
+OKO_API void oko_os_audio_destroy(oko_OsAudioSystem *os_audio) {
+
+}
+
+OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem *os_audio) {
+
+}
+
+OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem *os_audio, const f32 *buffer, u64 frame_count) {
+
+}
+
 #endif

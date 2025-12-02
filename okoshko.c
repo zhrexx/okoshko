@@ -11,96 +11,11 @@ OKO_API void oko_init() {
     ta = oko_temp_init(64*1024*1024);
 }
 
-#ifdef __APPLE__
-#include <mach/mach_time.h>
-
-struct oko_Timer {
-    mach_timebase_info_data_t timebase;
-    uint64_t start;
-};
-
-OKO_API oko_Timer *okoshko_timer_create() {
-    oko_Timer *timer = malloc(sizeof(oko_Timer));
-    mach_timebase_info(&timer->timebase);
-    timer->start = mach_absolute_time();
-    return timer;
-}
-
-OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
-    uint64_t now = mach_absolute_time();
-    uint64_t elapsed = now - timer->start;
-    return (elapsed * timer->timebase.numer) / (timer->timebase.denom * 1000000);
-}
-
-OKO_API void okoshko_timer_sleep(u64 ms) {
-    struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000;
-    nanosleep(&ts, NULL);
-}
-
-#elif defined(_WIN32)
-
-struct oko_Timer {
-    LARGE_INTEGER frequency;
-    LARGE_INTEGER start;
-};
-
-OKO_API oko_Timer *okoshko_timer_create() {
-    oko_Timer *timer = malloc(sizeof(oko_Timer));
-    QueryPerformanceFrequency(&timer->frequency);
-    QueryPerformanceCounter(&timer->start);
-    return timer;
-}
-
-OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
-    LARGE_INTEGER now;
-    QueryPerformanceCounter(&now);
-    return (u64)(((now.QuadPart - timer->start.QuadPart) * 1000) / timer->frequency.QuadPart);
-}
-
-OKO_API void okoshko_timer_sleep(u64 ms) {
-    Sleep((DWORD)ms);
-}
-
-#elif defined(__linux__)
-
-struct oko_Timer {
-    struct timespec start;
-};
-
-OKO_API oko_Timer *okoshko_timer_create() {
-    oko_Timer *timer = malloc(sizeof(oko_Timer));
-    clock_gettime(CLOCK_MONOTONIC, &timer->start);
-    return timer;
-}
-
-OKO_API u64 okoshko_timer_now(oko_Timer *timer) {
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    u64 elapsed_sec = now.tv_sec - timer->start.tv_sec;
-    i64 elapsed_nsec = now.tv_nsec - timer->start.tv_nsec;
-    if (elapsed_nsec < 0) {
-        elapsed_sec--;
-        elapsed_nsec += 1000000000;
-    }
-    return elapsed_sec * 1000 + elapsed_nsec / 1000000;
-}
-
-OKO_API void okoshko_timer_sleep(u64 ms) {
-    struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000;
-    nanosleep(&ts, NULL);
-}
-
-#endif
-
-#ifdef __APPLE__
+#ifdef OKO_APPLE
 #include "platform/apple.h"
-#elif defined(_WIN32)
+#elif defined(OKO_WINDOWS)
 #include "platform/windows.h"
-#elif defined(__linux__)
+#elif defined(OKO_LINUX)
 #include "platform/linux_x11.h"
 #endif
 
@@ -116,11 +31,11 @@ OKO_API void oko_set_fps(oko_Window *win, u32 fps) {
 
 OKO_API u32 oko_get_fps(oko_Window *win) {
     if (win->actual_frame_time <= 0) return 0;
-    return (u32)((1000000.0 / win->actual_frame_time) + 0.5);
+    return (u32)((1000000.0 / (f64)win->actual_frame_time) + 0.5);
 }
 
 
-OKO_API u8 oko_is_running(oko_Window *win) {
+OKO_API u8 oko_is_running(const oko_Window *win) {
     return win->running;
 }
 
@@ -132,7 +47,7 @@ OKO_API void oko_begin_drawing(oko_Window *win) {
 OKO_API void oko_end_drawing(oko_Window *win) {
     memcpy(win->pixels, win->back_buffer, win->width * win->height * sizeof(u32));
 
-#ifdef _WIN32
+#ifdef OKO_WINDOWS
     HDC hdc = GetDC(win->osw.hwnd);
     BITMAPINFO bmi = {0};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -144,7 +59,7 @@ OKO_API void oko_end_drawing(oko_Window *win) {
     StretchDIBits(hdc, 0, 0, win->width, win->height, 0, 0,
                   win->width, win->height, win->pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
     ReleaseDC(win->osw.hwnd, hdc);
-#elif defined(__linux__)
+#elif defined(OKO_LINUX)
     XPutImage(win->osw.dpy, win->osw.w, win->osw.gc, win->osw.img,
               0, 0, 0, 0, win->width, win->height);
     XFlush(win->osw.dpy);
@@ -455,4 +370,28 @@ OKO_API char *oko_format(const char *format, ...) {
 
 OKO_API oko_temp_allocator *oko_get_temp_allocator() {
     return &ta;
+}
+
+OKO_API oko_AudioSystem* oko_audio_create() {
+    oko_AudioSystem *audio = malloc(sizeof(oko_AudioSystem));
+    if (!audio) return NULL;
+    audio->os_audio = oko_os_audio_create(OKO_AUDIO_SAMPLE_RATE, OKO_AUDIO_BUFFER_SIZE);
+    if (!audio->os_audio) return NULL;
+    audio->is_open = 0;
+    audio->is_paused = 1;
+    audio->volume = 0.f;
+    return audio;
+}
+
+OKO_API void oko_audio_destroy(oko_AudioSystem *audio) {
+    oko_os_audio_destroy(audio->os_audio);
+    free(audio);
+}
+
+OKO_API u64 oko_audio_get_available_frames(oko_AudioSystem *audio) {
+    return oko_os_audio_get_available_frames(audio->os_audio);
+}
+
+OKO_API i32 oko_audio_write(oko_AudioSystem *audio, const f32 *samples, u64 frame_count) {
+    return oko_os_audio_submit_buffer(audio->os_audio, samples, frame_count);
 }
