@@ -13,13 +13,13 @@
 #endif
 
 typedef struct {
-    char buffer[OKO_TI_MAX_LENGTH];
-    int length;
+    u8 buffer[OKO_TI_MAX_LENGTH];
+    i32 length;
     u8 last_key_state[256];
 } oko_TI;
 
 oko_TI ti_init();
-void text_input_update(oko_TI *input, oko_Window *win);
+void text_input_update(oko_TI* input, oko_Window* win);
 
 #ifdef MODULE_TI_IMPLEMENTATION
 
@@ -31,10 +31,13 @@ oko_TI ti_init() {
     return in;
 }
 
-void ti_update(oko_TI *input, oko_Window *win) {
-    for (char c = 'a'; c <= 'z'; c++) {
-        if (oko_key_down(win, c) && !input->last_key_state[c]) {
-            if (input->length < OKO_TI_MAX_LENGTH - 1) {
+void ti_update(oko_TI* input, oko_Window* win) {
+    for (char c = 'a'; c <= 'z'; c++)
+    {
+        if (oko_key_down(win, c) && !input->last_key_state[c])
+        {
+            if (input->length < OKO_TI_MAX_LENGTH - 1)
+            {
                 input->buffer[input->length++] =
                     win->keyboard.shift ? (u8)toupper(c) : (u8)c;
             }
@@ -42,28 +45,38 @@ void ti_update(oko_TI *input, oko_Window *win) {
         input->last_key_state[c] = oko_key_down(win, c);
     }
 
-    for (char c = '0'; c <= '9'; c++) {
-        if (oko_key_down(win, c) && !input->last_key_state[c]) {
-            if (input->length < OKO_TI_MAX_LENGTH - 1) {
+    for (char c = '0'; c <= '9'; c++)
+    {
+        if (oko_key_down(win, c) && !input->last_key_state[c])
+        {
+            if (input->length < OKO_TI_MAX_LENGTH - 1)
+            {
                 input->buffer[input->length++] = c;
             }
         }
         input->last_key_state[c] = oko_key_down(win, c);
     }
 
-    if (oko_key_down(win, OKO_KEY_SPACE) && !input->last_key_state[OKO_KEY_SPACE]) {
-        if (input->length < OKO_TI_MAX_LENGTH - 1) {
+    if (oko_key_down(win, OKO_KEY_SPACE) &&
+        !input->last_key_state[OKO_KEY_SPACE])
+    {
+        if (input->length < OKO_TI_MAX_LENGTH - 1)
+        {
             input->buffer[input->length++] = ' ';
         }
     }
     input->last_key_state[OKO_KEY_SPACE] = oko_key_down(win, OKO_KEY_SPACE);
 
-    if (oko_key_down(win, OKO_KEY_BACKSPACE) && !input->last_key_state[OKO_KEY_BACKSPACE]) {
-        if (input->length > 0) {
+    if (oko_key_down(win, OKO_KEY_BACKSPACE) &&
+        !input->last_key_state[OKO_KEY_BACKSPACE])
+    {
+        if (input->length > 0)
+        {
             input->length--;
             input->buffer[input->length] = '\0';
         }
     }
-    input->last_key_state[OKO_KEY_BACKSPACE] = oko_key_down(win, OKO_KEY_BACKSPACE);
+    input->last_key_state[OKO_KEY_BACKSPACE] =
+        oko_key_down(win, OKO_KEY_BACKSPACE);
 }
 #endif

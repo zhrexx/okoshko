@@ -7,7 +7,6 @@
 #define OKO_RGB(r, g, b) (0xFF000000 | ((r) << 16) | ((g) << 8) | (b))
 #define OKO_RGBA(r, g, b, a) (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
 
-
 #define OKO_KEY_ESC 27
 #define OKO_KEY_SPACE ' '
 #define OKO_KEY_ENTER '\r'
@@ -25,11 +24,9 @@
 #define OKO_KEY_END 137
 #define OKO_KEY_PAGE_UP 138
 #define OKO_KEY_PAGE_DOWN 139
-//#define OKO_KEY_
+// #define OKO_KEY_
 
 // Mouse
 #define OKO_MOUSE_LEFT 1
 #define OKO_MOUSE_RIGHT 2
 #define OKO_MOUSE_MIDDLE 3
-
-
