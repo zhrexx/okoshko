@@ -104,3 +104,9 @@ Contributions welcome! Please feel free to submit issues and pull requests.
 - Implement loading ttf files
 - Add basic elements
 - More modules
+
+## FLAGS
+
+- OKO_LOG_RESIZE - Logs resize events
+- OKO_DONT_USE_NATIVE - Dont use current/native platform. needed for example when using in Web
+- 

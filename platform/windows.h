@@ -3,6 +3,10 @@
 #include "linux_x11.h"
 #ifdef OKO_WINDOWS
 
+struct oko_PlatformWindow {
+    HWND hwnd;
+};
+
 static int oko_win32_key_to_index(WPARAM vk) {
     if (vk >= 'A' && vk <= 'Z')
         return vk;
@@ -131,11 +135,47 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     }
+    case WM_SIZE:
+        {
+            if (win && (wp == SIZE_RESTORED || wp == SIZE_MAXIMIZED))
+            {
+                i32 new_width = LOWORD(lp);
+                i32 new_height = HIWORD(lp);
+
+                if (new_width != win->width || new_height != win->height)
+                {
+                    u32* new_pixels = realloc(win->pixels,
+                                              new_width * new_height * sizeof(u32));
+                    if (!new_pixels) {
+                        log_error("Failed to reallocate pixels buffer");
+                        return 0;
+                    }
+                    win->pixels = new_pixels;
+
+                    u32* new_back_buffer = realloc(win->back_buffer,
+                                                    new_width * new_height * sizeof(u32));
+                    if (!new_back_buffer) {
+                        log_error("Failed to reallocate back buffer");
+                        return 0;
+                    }
+                    win->back_buffer = new_back_buffer;
+
+                    win->width = new_width;
+                    win->height = new_height;
+#ifdef OKO_LOG_RESIZE
+                    if (win->width % 10 == 0) log_info("Window resized to %d x %d", win->width, win->height);
+#endif
+                }
+            }
+            return 0;
+        }
+
     return DefWindowProc(hwnd, msg, wp, lp);
 }
 
 OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     oko_Window* win = calloc(1, sizeof(oko_Window));
+    win->pw = calloc(1, sizeof(oko_Window));
     win->title = strdup(title);
     win->width = width;
     win->height = height;
@@ -157,12 +197,12 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     RECT rect = {0, 0, width, height};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
 
-    win->osw.hwnd =
+    win->pw->hwnd =
         CreateWindowA("OkoshkoClass", title, WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                       CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left,
                       rect.bottom - rect.top, NULL, NULL, wc.hInstance, NULL);
 
-    SetWindowLongPtr(win->osw.hwnd, GWLP_USERDATA, (LONG_PTR)win);
+    SetWindowLongPtr(win->pw->hwnd, GWLP_USERDATA, (LONG_PTR)win);
     log_info("Created Windows Window '%s' (%d, %d)", title, width, height);
     return win;
 }
@@ -170,7 +210,8 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
 OKO_API void oko_destroy(oko_Window* win) {
     if (!win)
         return;
-    DestroyWindow(win->osw.hwnd);
+    DestroyWindow(win->pw->hwnd);
+    free(win->pw)
     free(win->pixels);
     free(win->back_buffer);
     free(win->title);
@@ -190,7 +231,7 @@ OKO_API void oko_poll_events(oko_Window* win) {
         DispatchMessage(&msg);
     }
 
-    win->showed = !IsIconic(win->osw.hwnd);
+    win->showed = !IsIconic(win->pw->hwnd);
 }
 
 struct oko_Timer {
@@ -215,16 +256,16 @@ OKO_API u64 okoshko_timer_now(oko_Timer* timer) {
 OKO_API void okoshko_timer_sleep(u64 ms) { Sleep((DWORD)ms); }
 
 // TODO: implement OS audio
-struct oko_OsAudioSystem {
+struct oko_PlatformAudioSystem {
     WAVEHDR header;
     HWAVEOUT wo;
     WAVEHDR hdr[2];
     i16** buf; // 2 each n big
 };
 
-OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate,
+OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
                                                u64 buffer_size) {
-    oko_OsAudioSystem* os_audio = malloc(sizeof(oko_OsAudioSystem));
+    oko_PlatformAudioSystem* os_audio = malloc(sizeof(oko_PlatformAudioSystem));
     WAVEFORMATEX wfx = {
         WAVE_FORMAT_PCM, 1, sample_rate, sample_rate * 2, 1, 16, 0
     };
@@ -242,7 +283,7 @@ OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate,
     return os_audio;
 }
 
-OKO_API void oko_os_audio_destroy(oko_OsAudioSystem* os_audio) {
+OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio) {
     for (int i = 0; i < 2; i++)
     {
         waveOutUnprepareHeader(os_audio->wo, &os_audio->hdr[i], sizeof(WAVEHDR));
@@ -254,7 +295,7 @@ OKO_API void oko_os_audio_destroy(oko_OsAudioSystem* os_audio) {
     free(os_audio);
 }
 
-OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem* os_audio) {
+OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio) {
     for (i32 i = 0; i < 2; ++i)
     {
         if (os_audio->hdr[i].dwFlags & WHDR_DONE)
@@ -263,7 +304,7 @@ OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem* os_audio) {
     return 0;
 }
 
-OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem* os_audio,
+OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
                                        const f32* buffer, u64 frame_count) {
     for (int i = 0; i < 2; i++)
     {

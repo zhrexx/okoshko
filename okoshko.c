@@ -51,7 +51,7 @@ OKO_API void oko_end_drawing(oko_Window* win) {
     memcpy(win->pixels, win->back_buffer, win->width * win->height * sizeof(u32));
 
 #ifdef OKO_WINDOWS
-    HDC hdc = GetDC(win->osw.hwnd);
+    HDC hdc = GetDC(win->pw->hwnd);
     BITMAPINFO bmi = {0};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = win->width;
@@ -61,11 +61,11 @@ OKO_API void oko_end_drawing(oko_Window* win) {
     bmi.bmiHeader.biCompression = BI_RGB;
     StretchDIBits(hdc, 0, 0, win->width, win->height, 0, 0, win->width,
                   win->height, win->pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
-    ReleaseDC(win->osw.hwnd, hdc);
+    ReleaseDC(win->pw->hwnd, hdc);
 #elif defined(OKO_LINUX)
-    XPutImage(win->osw.dpy, win->osw.w, win->osw.gc, win->osw.img, 0, 0, 0, 0,
+    XPutImage(win->pw->dpy, win->pw->w, win->pw->gc, win->pw->img, 0, 0, 0, 0,
               win->width, win->height);
-    XFlush(win->osw.dpy);
+    XFlush(win->pw->dpy);
 #endif
 
     u64 frame_end_time = okoshko_timer_now(win->timer);

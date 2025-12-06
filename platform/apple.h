@@ -3,6 +3,9 @@
 #include "../okoshko.h"
 
 #ifdef OKO_APPLE
+struct oko_PlatformWindow {
+    id wnd;
+};
 
 extern id objc_msgSend(id, SEL, ...);
 extern id objc_getClass(const char*);
@@ -132,6 +135,7 @@ static int oko_macos_key_to_index(unsigned short keyCode) {
 
 OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     oko_Window* win = calloc(1, sizeof(oko_Window));
+    win->pw = calloc(1, sizeof(oko_Window));
     win->title = strdup(title);
     win->width = width;
     win->height = height;
@@ -155,7 +159,7 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     msg1(window, "setTitle:", titleStr);
     msg1(window, "makeKeyAndOrderFront:", window);
 
-    win->osw.wnd = window;
+    win->pw->wnd = window;
     g_should_close = 0;
 
     log_info("Created Apple Window '%s' (%d, %d)", title, width, height);
@@ -165,7 +169,8 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
 OKO_API void oko_destroy(oko_Window* win) {
     if (!win)
         return;
-    msg(win->osw.wnd, "close");
+    msg(win->pw->wnd, "close");
+    free(win->pw);
     free(win->pixels);
     free(win->back_buffer);
     free(win->title);
@@ -262,7 +267,7 @@ OKO_API void oko_poll_events(oko_Window* win) {
             }
             else if (type == 5 || type == 6 || type == 7)
             {
-                id contentView = msg(win->osw.wnd, "contentView");
+                id contentView = msg(win->pw->wnd, "contentView");
                 CGPoint loc = *(CGPoint*)&objc_msgSend(
                     event, sel_registerName("locationInWindow"));
                 CGPoint converted =
@@ -280,7 +285,37 @@ OKO_API void oko_poll_events(oko_Window* win) {
     }
     while (event);
 
-    BOOL isMiniaturized = (BOOL)(long)msg(win->osw.wnd, "isMiniaturized");
+    id contentView = msg(win->pw->wnd, "contentView");
+    CGRect frame = *(CGRect*)&msg(contentView, "frame");
+    i32 new_width = (i32)frame.size.width;
+    i32 new_height = (i32)frame.size.height;
+
+    if (new_width != win->width || new_height != win->height)
+    {
+        u32* new_pixels = realloc(win->pixels,
+                                  new_width * new_height * sizeof(u32));
+        if (!new_pixels) {
+            log_error("Failed to reallocate pixels buffer");
+        } else {
+            win->pixels = new_pixels;
+
+            u32* new_back_buffer = realloc(win->back_buffer,
+                                            new_width * new_height * sizeof(u32));
+            if (!new_back_buffer) {
+                log_error("Failed to reallocate back buffer");
+            } else {
+                win->back_buffer = new_back_buffer;
+
+                win->width = new_width;
+                win->height = new_height;
+#ifdef OKO_LOG_RESIZE
+                if (win->width % 10 == 0) log_info("Window resized to %d x %d", win->width, win->height);
+#endif
+            }
+        }
+    }
+
+    BOOL isMiniaturized = (BOOL)(long)msg(win->pw->wnd, "isMiniaturized");
     win->showed = !isMiniaturized;
 
     msg(pool, "drain");
@@ -314,21 +349,20 @@ OKO_API void okoshko_timer_sleep(u64 ms) {
 }
 
 // TODO: implement OS audio
-
-struct oko_OsAudioSystem {
+struct oko_PlatformAudioSystem {
 };
 
-OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate,
+OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
                                                u64 buffer_size) {
 }
 
-OKO_API void oko_os_audio_destroy(oko_OsAudioSystem* os_audio) {
+OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio) {
 }
 
-OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem* os_audio) {
+OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio) {
 }
 
-OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem* os_audio,
+OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
                                        const f32* buffer, u64 frame_count) {
 }
 

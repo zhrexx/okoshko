@@ -4,6 +4,14 @@
 
 #ifdef OKO_LINUX
 
+struct oko_PlatformWindow {
+    Display* dpy;
+    Window w;
+    GC gc;
+    XImage* img;
+    Atom wm_delete_window;
+};
+
 static int oko_x11_key_to_index(KeySym ks) {
     if (ks >= XK_a && ks <= XK_z)
         return (i32)ks - XK_a + 'a';
@@ -54,6 +62,7 @@ static int oko_x11_key_to_index(KeySym ks) {
 
 OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     oko_Window* win = calloc(1, sizeof(oko_Window));
+    win->pw = calloc(1, sizeof(oko_PlatformWindow));
     win->title = strdup(title);
     win->width = width;
     win->height = height;
@@ -65,28 +74,28 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     win->timer = okoshko_timer_create();
     win->frame_start_time = okoshko_timer_now(win->timer);
 
-    win->osw.dpy = XOpenDisplay(nullptr);
-    int screen = DefaultScreen(win->osw.dpy);
+    win->pw->dpy = XOpenDisplay(nullptr);
+    int screen = DefaultScreen(win->pw->dpy);
 
-    win->osw.w = XCreateSimpleWindow(
-        win->osw.dpy, RootWindow(win->osw.dpy, screen), 0, 0, width, height, 1,
-        BlackPixel(win->osw.dpy, screen), WhitePixel(win->osw.dpy, screen));
+    win->pw->w = XCreateSimpleWindow(
+        win->pw->dpy, RootWindow(win->pw->dpy, screen), 0, 0, width, height, 1,
+        BlackPixel(win->pw->dpy, screen), WhitePixel(win->pw->dpy, screen));
 
-    XStoreName(win->osw.dpy, win->osw.w, title);
-    XSelectInput(win->osw.dpy, win->osw.w,
+    XStoreName(win->pw->dpy, win->pw->w, title);
+    XSelectInput(win->pw->dpy, win->pw->w,
                  ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask |
                  ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
 
-    win->osw.gc = XCreateGC(win->osw.dpy, win->osw.w, 0, nullptr);
+    win->pw->gc = XCreateGC(win->pw->dpy, win->pw->w, 0, nullptr);
 
-    Visual* vis = DefaultVisual(win->osw.dpy, screen);
-    win->osw.img = XCreateImage(win->osw.dpy, vis, 24, ZPixmap, 0,
+    Visual* vis = DefaultVisual(win->pw->dpy, screen);
+    win->pw->img = XCreateImage(win->pw->dpy, vis, 24, ZPixmap, 0,
                                 (char*)win->pixels, width, height, 32, 0);
 
-    XMapWindow(win->osw.dpy, win->osw.w);
-    win->osw.wm_delete_window =
-        XInternAtom(win->osw.dpy, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(win->osw.dpy, win->osw.w, &win->osw.wm_delete_window, 1);
+    XMapWindow(win->pw->dpy, win->pw->w);
+    win->pw->wm_delete_window =
+        XInternAtom(win->pw->dpy, "WM_DELETE_WINDOW", False);
+    XSetWMProtocols(win->pw->dpy, win->pw->w, &win->pw->wm_delete_window, 1);
     log_info("Created X11 Window '%s' (%d, %d)", title, width, height);
     return win;
 }
@@ -94,9 +103,10 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
 OKO_API void oko_destroy(oko_Window* win) {
     if (!win)
         return;
-    XFreeGC(win->osw.dpy, win->osw.gc);
-    XDestroyWindow(win->osw.dpy, win->osw.w);
-    XCloseDisplay(win->osw.dpy);
+    XFreeGC(win->pw->dpy, win->pw->gc);
+    XDestroyWindow(win->pw->dpy, win->pw->w);
+    XCloseDisplay(win->pw->dpy);
+    free(win->pw);
     free(win->pixels);
     free(win->back_buffer);
     free(win->title);
@@ -106,9 +116,9 @@ OKO_API void oko_destroy(oko_Window* win) {
 
 OKO_API void oko_poll_events(oko_Window* win) {
     XEvent ev;
-    while (XPending(win->osw.dpy))
+    while (XPending(win->pw->dpy))
     {
-        XNextEvent(win->osw.dpy, &ev);
+        XNextEvent(win->pw->dpy, &ev);
         switch (ev.type)
         {
         case KeyPress:
@@ -162,7 +172,7 @@ OKO_API void oko_poll_events(oko_Window* win) {
             win->mouse.y = ev.xmotion.y;
             break;
         case ClientMessage:
-            if ((Atom)ev.xclient.data.l[0] == win->osw.wm_delete_window)
+            if ((Atom)ev.xclient.data.l[0] == win->pw->wm_delete_window)
             {
                 win->running = 0;
             }
@@ -175,8 +185,51 @@ OKO_API void oko_poll_events(oko_Window* win) {
             break;
         case Expose:
         case ReparentNotify:
-        case ConfigureNotify:
             break;
+        case ConfigureNotify:
+            {
+                if (ev.xconfigure.width != win->width ||
+                    ev.xconfigure.height != win->height)
+                {
+                    i32 new_width = ev.xconfigure.width;
+                    i32 new_height = ev.xconfigure.height;
+
+                    u32* new_pixels = realloc(win->pixels,
+                                              new_width * new_height * sizeof(u32));
+                    if (!new_pixels) {
+                        log_error("Failed to reallocate pixels buffer");
+                        break;
+                    }
+                    win->pixels = new_pixels;
+
+                    u32* new_back_buffer = realloc(win->back_buffer,
+                                                    new_width * new_height * sizeof(u32));
+                    if (!new_back_buffer) {
+                        log_error("Failed to reallocate back buffer");
+                        break;
+                    }
+                    win->back_buffer = new_back_buffer;
+
+                    if (win->pw->img) {
+                        win->pw->img->data = NULL;
+                        XDestroyImage(win->pw->img);
+                    }
+
+                    win->width = new_width;
+                    win->height = new_height;
+
+
+                    int screen = DefaultScreen(win->pw->dpy);
+                    Visual* vis = DefaultVisual(win->pw->dpy, screen);
+                    win->pw->img = XCreateImage(win->pw->dpy, vis, 24, ZPixmap, 0,
+                                                (char*)win->pixels, win->width, win->height,
+                                                32, 0);
+#ifdef OKO_LOG_RESIZE
+                    if (win->width % 10 == 0) log_info("Window resized to %d x %d", win->width, win->height);
+#endif
+                }
+                break;
+            }
         default:
             log_warn("Unhandled case: %u", ev.type);
             break;
@@ -224,15 +277,17 @@ int snd_pcm_writei(void*, const void*, u64);
 int snd_pcm_recover(void*, i32, i32);
 int snd_pcm_close(void*);
 
-struct oko_OsAudioSystem {
+// TODO: fix
+
+struct oko_PlatformAudioSystem {
     void* pcm;
     f32 buf[OKO_AUDIO_BUFFER_SIZE];
     u64 pos;
 };
 
-OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate,
+OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
                                                u64 buffer_size) {
-    oko_OsAudioSystem* os_audio = malloc(sizeof(oko_OsAudioSystem));
+    oko_PlatformAudioSystem* os_audio = malloc(sizeof(oko_PlatformAudioSystem));
     if (snd_pcm_open(&os_audio->pcm, "default", 0, 0))
     {
         oko_error2 = "Could not open audio device";
@@ -251,18 +306,18 @@ OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate,
     return os_audio;
 }
 
-OKO_API void oko_os_audio_destroy(oko_OsAudioSystem* os_audio) {
+OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio) {
     snd_pcm_close(os_audio->pcm);
 }
 
-OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem* os_audio) {
+OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio) {
     i32 n = snd_pcm_avail(os_audio->pcm);
     if (n < 0)
         snd_pcm_recover(os_audio->pcm, n, 0);
     return n;
 }
 
-OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem* os_audio,
+OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
                                        const f32* buffer, u64 n) {
     int r = snd_pcm_writei(os_audio->pcm, buffer, n);
     if (r < 0)

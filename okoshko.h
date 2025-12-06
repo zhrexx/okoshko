@@ -5,22 +5,31 @@
 #include "helpers/log.h"
 #include "helpers/st.h"
 
+#ifndef OKO_DONT_USE_NATIVE
 #ifdef __APPLE__
 #define OKO_APPLE
+#elif defined(_WIN32)
+#define OKO_WINDOWS
+#elif defined(__linux__)
+#define OKO_LINUX
+#endif
+#endif
+
+#ifdef OKO_APPLE
 #include <AudioToolbox/AudioQueue.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <objc/NSObjCRuntime.h>
 #include <objc/objc-runtime.h>
-#elif defined(_WIN32)
-#define OKO_WINDOWS
+#elif defined(OKO_WINDOWS)
 #include <mmsystem.h>
 #include <windows.h>
-#elif defined(__linux__)
-#define OKO_LINUX
+#elif defined(OKO_LINUX)
 #define _DEFAULT_SOURCE 1
 #include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+#include <X11/Xutil.h>
+#elif defined(OKO_WEB)
 #include <time.h>
 #else
 #error "Platform not supported!"
@@ -53,22 +62,8 @@ typedef struct {
 } oko_Mouse;
 
 typedef struct oko_Timer oko_Timer;
-
-typedef struct {
-#ifdef OKO_APPLE
-    id wnd;
-#elif defined(OKO_WINDOWS)
-    HWND hwnd;
-#elif defined(OKO_LINUX)
-    Display* dpy;
-    Window w;
-    GC gc;
-    XImage* img;
-    Atom wm_delete_window;
-#endif
-} oko_OsWindow;
-
-typedef struct oko_OsAudioSystem oko_OsAudioSystem;
+typedef struct oko_PlatformWindow oko_PlatformWindow;
+typedef struct oko_PlatformAudioSystem oko_PlatformAudioSystem;
 
 typedef struct {
     u8 character;
@@ -93,7 +88,7 @@ typedef struct {
     f32 volume; // TODO implement
     i32 is_open;
     i32 is_paused;
-    oko_OsAudioSystem* os_audio;
+    oko_PlatformAudioSystem* os_audio;
 } oko_AudioSystem;
 
 typedef struct {
@@ -108,7 +103,7 @@ typedef struct {
     oko_Mouse mouse;
     oko_Keyboard keyboard;
 
-    oko_OsWindow osw;
+    oko_PlatformWindow *pw; // TODO: refactor
     oko_Timer* timer;
     u64 target_frame_time;
     u64 frame_start_time;
@@ -137,11 +132,11 @@ OKO_API u64 okoshko_timer_now(oko_Timer* timer);
 OKO_API void okoshko_timer_sleep(u64 ms);
 
 // AUDIO STUFF
-OKO_API oko_OsAudioSystem* oko_os_audio_create(u64 sample_rate,
+OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
                                                u64 buffer_size);
-OKO_API void oko_os_audio_destroy(oko_OsAudioSystem* os_audio);
-OKO_API u64 oko_os_audio_get_available_frames(oko_OsAudioSystem* os_audio);
-OKO_API i32 oko_os_audio_submit_buffer(oko_OsAudioSystem* os_audio,
+OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio);
+OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio);
+OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
                                        const f32* buffer, u64 n);
 
 OKO_API oko_AudioSystem* oko_audio_create();
