@@ -15,34 +15,6 @@
 #endif
 #endif
 
-#ifdef OKO_APPLE
-#include <AudioToolbox/AudioQueue.h>
-#include <CoreGraphics/CoreGraphics.h>
-#include <objc/NSObjCRuntime.h>
-#include <objc/objc-runtime.h>
-#elif defined(OKO_WINDOWS)
-#include <mmsystem.h>
-#include <windows.h>
-#elif defined(OKO_LINUX)
-#define _DEFAULT_SOURCE 1
-#include <X11/XKBlib.h>
-#include <X11/Xlib.h>
-#include <X11/keysym.h>
-#include <X11/Xutil.h>
-#elif defined(OKO_WEB)
-#include <time.h>
-#else
-#error "Platform not supported!"
-#endif
-
-#ifndef OKO_AUDIO_SAMPLE_RATE
-#define OKO_AUDIO_SAMPLE_RATE 44100
-#endif
-
-#ifndef OKO_AUDIO_BUFFER_SIZE
-#define OKO_AUDIO_BUFFER_SIZE 8192
-#endif
-
 typedef struct {
     i32 x, y, w, h;
 } oko_Rect;
@@ -83,13 +55,6 @@ typedef struct {
     i32 glyphCount;
     oko_Glyph* glyphs;
 } oko_Font;
-
-typedef struct {
-    f32 volume; // TODO implement
-    i32 is_open;
-    i32 is_paused;
-    oko_PlatformAudioSystem* os_audio;
-} oko_AudioSystem;
 
 typedef struct {
     char* title;
@@ -139,13 +104,8 @@ OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio)
 OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
                                        const f32* buffer, u64 n);
 
-OKO_API oko_AudioSystem* oko_audio_create();
-OKO_API void oko_audio_destroy(oko_AudioSystem* audio);
-OKO_API u64 oko_audio_get_available_frames(oko_AudioSystem* audio);
-OKO_API i32 oko_audio_write(oko_AudioSystem* audio, const f32* samples,
-                            u64 frame_count);
-
 // EVENT STUFF & BATCH RENDERING
+OKO_API void oko_os_swap_buffers(oko_Window* win);
 OKO_API void oko_begin_drawing(oko_Window* win);
 OKO_API void oko_end_drawing(oko_Window* win);
 OKO_API void oko_poll_events(oko_Window* win);

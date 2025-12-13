@@ -2,6 +2,9 @@
 
 #include "../okoshko.h"
 
+#define OKO_RECT_COLLIDES(r1, r2) (r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y
+#define OKO_CIRCLE_COLLIDES(x1, y1, r1, x2, y2, r2) (sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) <= r1 + r2)
+
 #define OKO_RECT(x, y, w, h) ((oko_Rect){x, y, w, h})
 #define OKO_POINT(x, y) ((oko_Point){x, y})
 #define OKO_RGB(r, g, b) (0xFF000000 | ((r) << 16) | ((g) << 8) | (b))

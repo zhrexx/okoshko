@@ -1,8 +1,10 @@
-#pragma once
-
 #include "../okoshko.h"
-
-#ifdef OKO_LINUX
+#define _DEFAULT_SOURCE 1
+#include <string.h>
+#include <X11/XKBlib.h>
+#include <X11/Xlib.h>
+#include <X11/keysym.h>
+#include <X11/Xutil.h>
 
 struct oko_PlatformWindow {
     Display* dpy;
@@ -56,7 +58,7 @@ static int oko_x11_key_to_index(KeySym ks) {
         return OKO_KEY_PAGE_UP;
     if (ks == XK_Page_Down)
         return OKO_KEY_PAGE_DOWN;
-
+    // TODO: add symbols (same for other)
     return 0;
 }
 
@@ -268,61 +270,8 @@ OKO_API void okoshko_timer_sleep(u64 ms) {
     nanosleep(&ts, NULL);
 }
 
-// AUDIO STUFF
-int snd_pcm_open(void**, const char*, i32, i32);
-int snd_pcm_set_params(void* pcm, i32 format, i32 access, i32 channels,
-                       i32 rate, i32 soft_resample, i32 latency);
-int snd_pcm_avail(void*);
-int snd_pcm_writei(void*, const void*, u64);
-int snd_pcm_recover(void*, i32, i32);
-int snd_pcm_close(void*);
-
-// TODO: fix
-
-struct oko_PlatformAudioSystem {
-    void* pcm;
-    f32 buf[OKO_AUDIO_BUFFER_SIZE];
-    u64 pos;
-};
-
-OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
-                                               u64 buffer_size) {
-    oko_PlatformAudioSystem* os_audio = malloc(sizeof(oko_PlatformAudioSystem));
-    if (snd_pcm_open(&os_audio->pcm, "default", 0, 0))
-    {
-        oko_error2 = "Could not open audio device";
-        return NULL;
-    }
-    uint16_t test = 1;
-    int fmt = (*(uint8_t*)&test) ? 14 : 15; // Checking Endiness
-    if (!snd_pcm_set_params(os_audio->pcm, fmt, 3, 1, (i32)sample_rate, 1,
-                            100000))
-    {
-        snd_pcm_close(os_audio->pcm);
-        free(os_audio);
-        oko_error2 = "Could not set audio params";
-        return NULL;
-    }
-    return os_audio;
+OKO_API void oko_os_swap_buffers(oko_Window* win) {
+    XPutImage(win->pw->dpy, win->pw->w, win->pw->gc, win->pw->img, 0, 0, 0, 0,
+              win->width, win->height);
+    XFlush(win->pw->dpy);
 }
-
-OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio) {
-    snd_pcm_close(os_audio->pcm);
-}
-
-OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio) {
-    i32 n = snd_pcm_avail(os_audio->pcm);
-    if (n < 0)
-        snd_pcm_recover(os_audio->pcm, n, 0);
-    return n;
-}
-
-OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
-                                       const f32* buffer, u64 n) {
-    int r = snd_pcm_writei(os_audio->pcm, buffer, n);
-    if (r < 0)
-        snd_pcm_recover(os_audio->pcm, r, 0);
-    return r;
-}
-
-#endif

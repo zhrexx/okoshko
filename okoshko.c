@@ -13,14 +13,6 @@ const char* oko_error2 = NULL;
 
 OKO_API void oko_init() { ta = oko_temp_init(64 * 1024 * 1024); }
 
-#ifdef OKO_APPLE
-#include "platform/apple.h"
-#elif defined(OKO_WINDOWS)
-#include "platform/windows.h"
-#elif defined(OKO_LINUX)
-#include "platform/linux_x11.h"
-#endif
-
 OKO_API void oko_set_fps(oko_Window* win, u32 fps) {
     if (fps <= 0)
     {
@@ -50,23 +42,7 @@ OKO_API void oko_begin_drawing(oko_Window* win) {
 OKO_API void oko_end_drawing(oko_Window* win) {
     memcpy(win->pixels, win->back_buffer, win->width * win->height * sizeof(u32));
 
-#ifdef OKO_WINDOWS
-    HDC hdc = GetDC(win->pw->hwnd);
-    BITMAPINFO bmi = {0};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = win->width;
-    bmi.bmiHeader.biHeight = -win->height;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    StretchDIBits(hdc, 0, 0, win->width, win->height, 0, 0, win->width,
-                  win->height, win->pixels, &bmi, DIB_RGB_COLORS, SRCCOPY);
-    ReleaseDC(win->pw->hwnd, hdc);
-#elif defined(OKO_LINUX)
-    XPutImage(win->pw->dpy, win->pw->w, win->pw->gc, win->pw->img, 0, 0, 0, 0,
-              win->width, win->height);
-    XFlush(win->pw->dpy);
-#endif
+    oko_os_swap_buffers(win);
 
     u64 frame_end_time = okoshko_timer_now(win->timer);
     u64 elapsed_us = (frame_end_time - win->frame_start_time) * 1000;
@@ -104,13 +80,9 @@ OKO_API void oko_end_drawing(oko_Window* win) {
 }
 
 OKO_API void oko_clear(oko_Window* win, u32 color) {
-    u32* buf = win->back_buffer;
-    i32 count = win->width * win->height;
-    for (i32 i = 0; i < count; i++)
-    {
-        buf[i] = color;
-    }
+    memset(win->back_buffer, color, win->width * win->height * sizeof(u32));
 }
+
 
 OKO_API void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color) {
     if (x >= 0 && x < win->width && y >= 0 && y < win->height)
@@ -385,6 +357,7 @@ OKO_API u8 oko_key_down(oko_Window* win, u8 key) {
     return win->keyboard.keys[key];
 }
 
+// TODO: dont handles - + and etc
 OKO_API u8 oko_key_pressed(oko_Window* win, u8 key) {
     if (key >= 'A' && key <= 'Z')
     {
@@ -428,37 +401,3 @@ OKO_API char* oko_format(const char* format, ...) {
 }
 
 OKO_API oko_temp_allocator* oko_get_temp_allocator() { return &ta; }
-
-OKO_API oko_AudioSystem* oko_audio_create() {
-    oko_AudioSystem* audio = malloc(sizeof(oko_AudioSystem));
-    if (!audio)
-    {
-        oko_error = "Could not allocate memory for audio system";
-        return NULL;
-    }
-    audio->os_audio =
-        oko_os_audio_create(OKO_AUDIO_SAMPLE_RATE, OKO_AUDIO_BUFFER_SIZE);
-    if (!audio->os_audio)
-    {
-        oko_error = "Could not create os audio system";
-        return NULL;
-    }
-    audio->is_open = 0;
-    audio->is_paused = 1;
-    audio->volume = 0.f;
-    return audio;
-}
-
-OKO_API void oko_audio_destroy(oko_AudioSystem* audio) {
-    oko_os_audio_destroy(audio->os_audio);
-    free(audio);
-}
-
-OKO_API u64 oko_audio_get_available_frames(oko_AudioSystem* audio) {
-    return oko_os_audio_get_available_frames(audio->os_audio);
-}
-
-OKO_API i32 oko_audio_write(oko_AudioSystem* audio, const f32* samples,
-                            u64 frame_count) {
-    return oko_os_audio_submit_buffer(audio->os_audio, samples, frame_count);
-}

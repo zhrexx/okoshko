@@ -1,8 +1,11 @@
-#pragma once
+#include <stdint.h>
 
 #include "../okoshko.h"
+#include <AudioToolbox/AudioQueue.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <objc/NSObjCRuntime.h>
+#include <objc/objc-runtime.h>
 
-#ifdef OKO_APPLE
 struct oko_PlatformWindow {
     id wnd;
 };
@@ -347,23 +350,3 @@ OKO_API void okoshko_timer_sleep(u64 ms) {
     ts.tv_nsec = (ms % 1000) * 1000000;
     nanosleep(&ts, NULL);
 }
-
-// TODO: implement OS audio
-struct oko_PlatformAudioSystem {
-};
-
-OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
-                                               u64 buffer_size) {
-}
-
-OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio) {
-}
-
-OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio) {
-}
-
-OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
-                                       const f32* buffer, u64 frame_count) {
-}
-
-#endif
