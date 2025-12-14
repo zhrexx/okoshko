@@ -34,12 +34,14 @@ OKO_API u32 oko_get_fps(oko_Window* win) {
 
 OKO_API u8 oko_is_running(const oko_Window* win) { return win->running; }
 
-OKO_API void oko_begin_drawing(oko_Window* win) {
+OKO_API void oko_begin_frame(oko_Window* win) {
     win->frame_start_time = okoshko_timer_now(win->timer);
+    win->mouse.scroll_x = 0;
+    win->mouse.scroll_y = 0;
     oko_poll_events(win);
 }
 
-OKO_API void oko_end_drawing(oko_Window* win) {
+OKO_API void oko_end_frame(oko_Window* win) {
     memcpy(win->pixels, win->back_buffer, win->width * win->height * sizeof(u32));
 
     oko_os_swap_buffers(win);
@@ -77,12 +79,13 @@ OKO_API void oko_end_drawing(oko_Window* win) {
     {
         win->actual_frame_time = 1;
     }
+
+    memcpy(win->keyboard.prev_keys, win->keyboard.keys, 256);
 }
 
 OKO_API void oko_clear(oko_Window* win, u32 color) {
     memset(win->back_buffer, color, win->width * win->height * sizeof(u32));
 }
-
 
 OKO_API void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color) {
     if (x >= 0 && x < win->width && y >= 0 && y < win->height)
@@ -115,7 +118,7 @@ OKO_API void oko_fill_rect(oko_Window* win, oko_Rect rect, u32 color) {
 }
 
 OKO_API void oko_fill_circle(oko_Window* win, i32 cx, i32 cy, i32 radius,
-                             u32 color) {
+                                u32 color) {
     for (i32 y = -radius; y <= radius; y++)
     {
         for (i32 x = -radius; x <= radius; x++)
@@ -366,7 +369,11 @@ OKO_API u8 oko_key_pressed(oko_Window* win, u8 key) {
             key = key + 32;
         }
     }
-    return win->keyboard.keys[key];
+    return win->keyboard.keys[key] && !win->keyboard.prev_keys[key];
+}
+
+OKO_API void oko_key_reset(oko_Window* win, u8 key) {
+    win->keyboard.prev_keys[key] = win->keyboard.keys[key];
 }
 
 OKO_API u8 oko_mouse_down(oko_Window* win, u8 button) {

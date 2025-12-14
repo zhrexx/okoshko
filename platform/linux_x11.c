@@ -1,6 +1,7 @@
 #include "../okoshko.h"
 #define _DEFAULT_SOURCE 1
 #include <string.h>
+#include <locale.h>
 #include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -12,6 +13,8 @@ struct oko_PlatformWindow {
     GC gc;
     XImage* img;
     Atom wm_delete_window;
+    XIM xim;
+    XIC xic;
 };
 
 static int oko_x11_key_to_index(KeySym ks) {
@@ -58,11 +61,16 @@ static int oko_x11_key_to_index(KeySym ks) {
         return OKO_KEY_PAGE_UP;
     if (ks == XK_Page_Down)
         return OKO_KEY_PAGE_DOWN;
-    // TODO: add symbols (same for other)
+
+    if (ks >= 0x20 && ks <= 0x7E)
+        return (i32)ks;
+    // TODO: add more keys
     return 0;
 }
 
 OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
+    setlocale(LC_ALL, "");
+    
     oko_Window* win = calloc(1, sizeof(oko_Window));
     win->pw = calloc(1, sizeof(oko_PlatformWindow));
     win->title = strdup(title);
@@ -75,8 +83,16 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     win->target_frame_time = 16;
     win->timer = okoshko_timer_create();
     win->frame_start_time = okoshko_timer_now(win->timer);
+    ed_init(&win->ed);
 
-    win->pw->dpy = XOpenDisplay(nullptr);
+    win->pw->dpy = XOpenDisplay(NULL);
+    if (!XSupportsLocale()) {
+        log_warn("X does not support locale");
+    }
+    if (!XSetLocaleModifiers("")) {
+        log_warn("Cannot set locale modifiers");
+    }
+    
     int screen = DefaultScreen(win->pw->dpy);
 
     win->pw->w = XCreateSimpleWindow(
@@ -88,11 +104,28 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
                  ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask |
                  ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
 
-    win->pw->gc = XCreateGC(win->pw->dpy, win->pw->w, 0, nullptr);
+    win->pw->gc = XCreateGC(win->pw->dpy, win->pw->w, 0, NULL);
 
     Visual* vis = DefaultVisual(win->pw->dpy, screen);
     win->pw->img = XCreateImage(win->pw->dpy, vis, 24, ZPixmap, 0,
                                 (char*)win->pixels, width, height, 32, 0);
+
+    win->pw->xim = XOpenIM(win->pw->dpy, NULL, NULL, NULL);
+    if (win->pw->xim) {
+        win->pw->xic = XCreateIC(win->pw->xim,
+                                 XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+                                 XNClientWindow, win->pw->w,
+                                 XNFocusWindow, win->pw->w,
+                                 NULL);
+        if (win->pw->xic) {
+            XSetICFocus(win->pw->xic);
+        } else {
+            log_warn("Failed to create input context");
+        }
+    } else {
+        log_warn("Failed to open input method");
+        win->pw->xic = NULL;
+    }
 
     XMapWindow(win->pw->dpy, win->pw->w);
     win->pw->wm_delete_window =
@@ -105,6 +138,10 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
 OKO_API void oko_destroy(oko_Window* win) {
     if (!win)
         return;
+    if (win->pw->xic)
+        XDestroyIC(win->pw->xic);
+    if (win->pw->xim)
+        XCloseIM(win->pw->xim);
     XFreeGC(win->pw->dpy, win->pw->gc);
     XDestroyWindow(win->pw->dpy, win->pw->w);
     XCloseDisplay(win->pw->dpy);
@@ -121,11 +158,33 @@ OKO_API void oko_poll_events(oko_Window* win) {
     while (XPending(win->pw->dpy))
     {
         XNextEvent(win->pw->dpy, &ev);
+        
+        if (win->pw->xic && XFilterEvent(&ev, None))
+            continue;
+        
         switch (ev.type)
         {
         case KeyPress:
             {
-                int idx = oko_x11_key_to_index(XLookupKeysym(&ev.xkey, 0));
+                char buf[32];
+                KeySym ks;
+                Status status;
+                int len = 0;
+                
+                if (win->pw->xic) {
+                    len = Xutf8LookupString(win->pw->xic, &ev.xkey, buf, sizeof(buf) - 1, &ks, &status);
+                    if (status == XBufferOverflow) {
+                        log_warn("UTF-8 buffer overflow");
+                    }
+                } else {
+                    len = XLookupString(&ev.xkey, buf, sizeof(buf) - 1, &ks, NULL);
+                }
+                
+                if (len > 0) {
+                    buf[len] = '\0';
+                }
+                
+                int idx = oko_x11_key_to_index(ks);
                 if (idx > 0 && idx < 256)
                 {
                     win->keyboard.keys[idx] = 1;
@@ -140,7 +199,8 @@ OKO_API void oko_poll_events(oko_Window* win) {
             }
         case KeyRelease:
             {
-                int idx = oko_x11_key_to_index(XLookupKeysym(&ev.xkey, 0));
+                KeySym ks = XLookupKeysym(&ev.xkey, 0);
+                int idx = oko_x11_key_to_index(ks);
                 if (idx > 0 && idx < 256)
                 {
                     win->keyboard.keys[idx] = 0;
@@ -160,6 +220,14 @@ OKO_API void oko_poll_events(oko_Window* win) {
                 win->mouse.right = 1;
             else if (ev.xbutton.button == Button2)
                 win->mouse.middle = 1;
+            else if (ev.xbutton.button == Button4)
+                win->mouse.scroll_y += 1;
+            else if (ev.xbutton.button == Button5)
+                win->mouse.scroll_y -= 1;
+            else if (ev.xbutton.button == 6)
+                win->mouse.scroll_x -= 1;
+            else if (ev.xbutton.button == 7)
+                win->mouse.scroll_x += 1;
             break;
         case ButtonRelease:
             if (ev.xbutton.button == Button1)
@@ -220,7 +288,6 @@ OKO_API void oko_poll_events(oko_Window* win) {
                     win->width = new_width;
                     win->height = new_height;
 
-
                     int screen = DefaultScreen(win->pw->dpy);
                     Visual* vis = DefaultVisual(win->pw->dpy, screen);
                     win->pw->img = XCreateImage(win->pw->dpy, vis, 24, ZPixmap, 0,
@@ -239,28 +306,18 @@ OKO_API void oko_poll_events(oko_Window* win) {
     }
 }
 
-// TIMER STUFF
 struct oko_Timer {
-    struct timespec start;
 };
 
 OKO_API oko_Timer* okoshko_timer_create() {
-    oko_Timer* timer = malloc(sizeof(oko_Timer));
-    clock_gettime(CLOCK_MONOTONIC, &timer->start);
-    return timer;
+    return NULL;
 }
 
 OKO_API u64 okoshko_timer_now(oko_Timer* timer) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    u64 elapsed_sec = now.tv_sec - timer->start.tv_sec;
-    i64 elapsed_nsec = now.tv_nsec - timer->start.tv_nsec;
-    if (elapsed_nsec < 0)
-    {
-        elapsed_sec--;
-        elapsed_nsec += 1000000000;
-    }
-    return elapsed_sec * 1000 + elapsed_nsec / 1000000;
+    return (u64)now.tv_sec * 1000
+         + (u64)now.tv_nsec / 1000000;
 }
 
 OKO_API void okoshko_timer_sleep(u64 ms) {

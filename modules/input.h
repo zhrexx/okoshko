@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <string.h>
 
+// TODO: update use win->prev_keys
 // TODO: implement special chars and , .
 // NOTE: each shift+num char
 

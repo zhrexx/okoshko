@@ -51,6 +51,15 @@ static int oko_win32_key_to_index(WPARAM vk) {
     if (vk == VK_NEXT)
         return OKO_KEY_PAGE_DOWN;
 
+    if (vk >= VK_OEM_1 && vk <= VK_OEM_3)
+        return vk;
+    if (vk >= VK_OEM_4 && vk <= VK_OEM_8)
+        return vk;
+    if (vk == VK_OEM_PLUS || vk == VK_OEM_COMMA || vk == VK_OEM_MINUS || vk == VK_OEM_PERIOD)
+        return vk;
+
+    // TODO: add more keys
+
     return 0;
 }
 
@@ -63,45 +72,67 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (win)
             win->running = 0;
         return 0;
+    case WM_CHAR:
+        if (win && win->text_input_callback && wp >= 32 && wp != 127)
+        {
+            char utf8[5];
+            int len = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)&wp, 1, utf8, sizeof(utf8) - 1, NULL, NULL);
+            if (len > 0)
+            {
+                utf8[len] = '\0';
+                win->text_input_callback(win, utf8);
+            }
+        }
+        return 0;
+    case WM_UNICHAR:
+        if (wp == UNICODE_NOCHAR)
+            return TRUE;
+        if (win && win->text_input_callback && wp >= 32)
+        {
+            WCHAR wc = (WCHAR)wp;
+            char utf8[5];
+            int len = WideCharToMultiByte(CP_UTF8, 0, &wc, 1, utf8, sizeof(utf8) - 1, NULL, NULL);
+            if (len > 0)
+            {
+                utf8[len] = '\0';
+                win->text_input_callback(win, utf8);
+            }
+        }
+        return 0;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
+        if (win)
         {
-            if (win)
+            int idx = oko_win32_key_to_index(wp);
+            if (idx > 0 && idx < 256)
             {
-                int idx = oko_win32_key_to_index(wp);
-                if (idx > 0 && idx < 256)
-                {
-                    win->keyboard.keys[idx] = 1;
-                    if (idx == OKO_KEY_SHIFT)
-                        win->keyboard.shift = 1;
-                    if (idx == OKO_KEY_CTRL)
-                        win->keyboard.ctrl = 1;
-                    if (idx == OKO_KEY_ALT)
-                        win->keyboard.alt = 1;
-                }
+                win->keyboard.keys[idx] = 1;
+                if (idx == OKO_KEY_SHIFT)
+                    win->keyboard.shift = 1;
+                if (idx == OKO_KEY_CTRL)
+                    win->keyboard.ctrl = 1;
+                if (idx == OKO_KEY_ALT)
+                    win->keyboard.alt = 1;
             }
-            return 0;
         }
+        return 0;
     case WM_KEYUP:
     case WM_SYSKEYUP:
+        if (win)
         {
-            if (win)
+            int idx = oko_win32_key_to_index(wp);
+            if (idx > 0 && idx < 256)
             {
-                int idx = oko_win32_key_to_index(wp);
-                if (idx > 0 && idx < 256)
-                {
-                    win->keyboard.keys[idx] = 0;
-
-                    if (idx == OKO_KEY_SHIFT)
-                        win->keyboard.shift = 0;
-                    if (idx == OKO_KEY_CTRL)
-                        win->keyboard.ctrl = 0;
-                    if (idx == OKO_KEY_ALT)
-                        win->keyboard.alt = 0;
-                }
+                win->keyboard.keys[idx] = 0;
+                if (idx == OKO_KEY_SHIFT)
+                    win->keyboard.shift = 0;
+                if (idx == OKO_KEY_CTRL)
+                    win->keyboard.ctrl = 0;
+                if (idx == OKO_KEY_ALT)
+                    win->keyboard.alt = 0;
             }
-            return 0;
         }
+        return 0;
     case WM_LBUTTONDOWN:
         if (win)
             win->mouse.left = 1;
@@ -133,48 +164,60 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             win->mouse.y = HIWORD(lp);
         }
         return 0;
-    }
     case WM_SIZE:
+        if (win && (wp == SIZE_RESTORED || wp == SIZE_MAXIMIZED))
         {
-            if (win && (wp == SIZE_RESTORED || wp == SIZE_MAXIMIZED))
+            i32 new_width = LOWORD(lp);
+            i32 new_height = HIWORD(lp);
+
+            if (new_width != win->width || new_height != win->height)
             {
-                i32 new_width = LOWORD(lp);
-                i32 new_height = HIWORD(lp);
-
-                if (new_width != win->width || new_height != win->height)
+                u32* new_pixels = realloc(win->pixels, new_width * new_height * sizeof(u32));
+                if (!new_pixels)
                 {
-                    u32* new_pixels = realloc(win->pixels,
-                                              new_width * new_height * sizeof(u32));
-                    if (!new_pixels) {
-                        log_error("Failed to reallocate pixels buffer");
-                        return 0;
-                    }
-                    win->pixels = new_pixels;
-
-                    u32* new_back_buffer = realloc(win->back_buffer,
-                                                    new_width * new_height * sizeof(u32));
-                    if (!new_back_buffer) {
-                        log_error("Failed to reallocate back buffer");
-                        return 0;
-                    }
-                    win->back_buffer = new_back_buffer;
-
-                    win->width = new_width;
-                    win->height = new_height;
-#ifdef OKO_LOG_RESIZE
-                    if (win->width % 10 == 0) log_info("Window resized to %d x %d", win->width, win->height);
-#endif
+                    log_error("Failed to reallocate pixels buffer");
+                    return 0;
                 }
+                win->pixels = new_pixels;
+
+                u32* new_back_buffer = realloc(win->back_buffer, new_width * new_height * sizeof(u32));
+                if (!new_back_buffer)
+                {
+                    log_error("Failed to reallocate back buffer");
+                    return 0;
+                }
+                win->back_buffer = new_back_buffer;
+
+                win->width = new_width;
+                win->height = new_height;
+#ifdef OKO_LOG_RESIZE
+                if (win->width % 10 == 0) log_info("Window resized to %d x %d", win->width, win->height);
+#endif
             }
-            return 0;
         }
+        return 0;
+    case WM_MOUSEWHEEL:
+        if (win)
+        {
+            i32 delta = GET_WHEEL_DELTA_WPARAM(wp);
+            win->mouse.scroll_y += delta / WHEEL_DELTA;
+        }
+        return 0;
+    case WM_MOUSEHWHEEL:
+        if (win)
+        {
+            i32 delta = GET_WHEEL_DELTA_WPARAM(wp);
+            win->mouse.scroll_x += delta / WHEEL_DELTA;
+        }
+        return 0;
+    }
 
     return DefWindowProc(hwnd, msg, wp, lp);
 }
 
 OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     oko_Window* win = calloc(1, sizeof(oko_Window));
-    win->pw = calloc(1, sizeof(oko_Window));
+    win->pw = calloc(1, sizeof(oko_PlatformWindow));
     win->title = strdup(title);
     win->width = width;
     win->height = height;
@@ -185,6 +228,7 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     win->target_frame_time = 16;
     win->timer = okoshko_timer_create();
     win->frame_start_time = okoshko_timer_now(win->timer);
+    ed_init(&win->ed);
 
     WNDCLASSA wc = {0};
     wc.lpfnWndProc = WindowProc;
@@ -196,10 +240,9 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     RECT rect = {0, 0, width, height};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
 
-    win->pw->hwnd =
-        CreateWindowA("OkoshkoClass", title, WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-                      CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left,
-                      rect.bottom - rect.top, NULL, NULL, wc.hInstance, NULL);
+    win->pw->hwnd = CreateWindowA("OkoshkoClass", title, WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                                  CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left,
+                                  rect.bottom - rect.top, NULL, NULL, wc.hInstance, NULL);
 
     SetWindowLongPtr(win->pw->hwnd, GWLP_USERDATA, (LONG_PTR)win);
     log_info("Created Windows Window '%s' (%d, %d)", title, width, height);
@@ -235,24 +278,23 @@ OKO_API void oko_poll_events(oko_Window* win) {
 
 struct oko_Timer {
     LARGE_INTEGER frequency;
-    LARGE_INTEGER start;
 };
 
-OKO_API oko_Timer* okoshko_timer_create() {
+OKO_API oko_Timer* okoshko_timer_create(void) {
     oko_Timer* timer = malloc(sizeof(oko_Timer));
     QueryPerformanceFrequency(&timer->frequency);
-    QueryPerformanceCounter(&timer->start);
     return timer;
 }
 
 OKO_API u64 okoshko_timer_now(oko_Timer* timer) {
     LARGE_INTEGER now;
     QueryPerformanceCounter(&now);
-    return (u64)(((now.QuadPart - timer->start.QuadPart) * 1000) /
-        timer->frequency.QuadPart);
+    return (u64)((now.QuadPart * 1000) / timer->frequency.QuadPart);
 }
 
-OKO_API void okoshko_timer_sleep(u64 ms) { Sleep((DWORD)ms); }
+OKO_API void okoshko_timer_sleep(u64 ms) {
+    Sleep((DWORD)ms);
+}
 
 OKO_API void oko_os_swap_buffers(oko_Window* win) {
     HDC hdc = GetDC(win->pw->hwnd);

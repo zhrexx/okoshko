@@ -67,7 +67,7 @@ int main() {
         width = &win->width;
         height = &win->height;
         const u32 fps = oko_get_fps(win);
-        oko_begin_drawing(win);
+        oko_begin_frame(win);
         i32 red = 0;
         i32 blue = 0;
 
@@ -169,7 +169,7 @@ int main() {
 
         oko_draw_text(win, oko_format("FPS: %llu ; B = %d ; R = %d", fps, blue, red), f, 20, 20,
                       1.5f, 0xFFFFFFFF);
-        oko_end_drawing(win);
+        oko_end_frame(win);
         oko_temp_reset(ta);
     }
 

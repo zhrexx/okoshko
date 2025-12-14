@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <time.h>
 
 #include "../okoshko.h"
 #include <AudioToolbox/AudioQueue.h>
@@ -133,12 +134,35 @@ static int oko_macos_key_to_index(unsigned short keyCode) {
     if (keyCode == 121)
         return OKO_KEY_PAGE_DOWN;
 
+    if (keyCode == 24)
+        return '=';
+    if (keyCode == 27)
+        return '-';
+    if (keyCode == 30)
+        return ']';
+    if (keyCode == 33)
+        return '[';
+    if (keyCode == 39)
+        return '\'';
+    if (keyCode == 41)
+        return ';';
+    if (keyCode == 42)
+        return '\\';
+    if (keyCode == 43)
+        return ',';
+    if (keyCode == 44)
+        return '/';
+    if (keyCode == 47)
+        return '.';
+    if (keyCode == 50)
+        return '`';
+
     return 0;
 }
 
 OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     oko_Window* win = calloc(1, sizeof(oko_Window));
-    win->pw = calloc(1, sizeof(oko_Window));
+    win->pw = calloc(1, sizeof(oko_PlatformWindow));
     win->title = strdup(title);
     win->width = width;
     win->height = height;
@@ -149,14 +173,14 @@ OKO_API oko_Window* oko_create(const char* title, i32 width, i32 height) {
     win->target_frame_time = 16;
     win->timer = okoshko_timer_create();
     win->frame_start_time = okoshko_timer_now(win->timer);
+    ed_init(&win->ed);
 
     id app = msg(objc_getClass("NSApplication"), "sharedApplication");
     msg1(app, "setActivationPolicy:", 0);
 
     CGRect frame = CGRectMake(0, 0, width, height);
     id window = msg(objc_getClass("NSWindow"), "alloc");
-    window = msg2(window, "initWithContentRect:styleMask:backing:defer:", frame,
-                  15, 2, NO);
+    window = msg2(window, "initWithContentRect:styleMask:backing:defer:", frame, 15, 2, NO);
 
     id titleStr = msg1(objc_getClass("NSString"), "stringWithUTF8String:", title);
     msg1(window, "setTitle:", titleStr);
@@ -189,17 +213,14 @@ OKO_API void oko_poll_events(oko_Window* win) {
     id event;
     do
     {
-        event =
-            msg2(app, "nextEventMatchingMask:untilDate:inMode:dequeue:", ULONG_MAX,
-                 NULL, 0, YES);
+        event = msg2(app, "nextEventMatchingMask:untilDate:inMode:dequeue:", ULONG_MAX, NULL, 0, YES);
         if (event)
         {
             unsigned long type = (unsigned long)msg(event, "type");
 
             if (type == 10)
             {
-                unsigned short keyCode =
-                    (unsigned short)(unsigned long)msg(event, "keyCode");
+                unsigned short keyCode = (unsigned short)(unsigned long)msg(event, "keyCode");
                 int idx = oko_macos_key_to_index(keyCode);
                 if (idx > 0 && idx < 256)
                 {
@@ -211,11 +232,23 @@ OKO_API void oko_poll_events(oko_Window* win) {
                     if (idx == OKO_KEY_ALT)
                         win->keyboard.alt = 1;
                 }
+
+                if (win->text_input_callback)
+                {
+                    id characters = msg(event, "characters");
+                    if (characters)
+                    {
+                        const char* utf8 = (const char*)msg(characters, "UTF8String");
+                        if (utf8 && utf8[0] >= 32)
+                        {
+                            win->text_input_callback(win, utf8);
+                        }
+                    }
+                }
             }
             else if (type == 11)
             {
-                unsigned short keyCode =
-                    (unsigned short)(unsigned long)msg(event, "keyCode");
+                unsigned short keyCode = (unsigned short)(unsigned long)msg(event, "keyCode");
                 int idx = oko_macos_key_to_index(keyCode);
                 if (idx > 0 && idx < 256)
                 {
@@ -230,8 +263,7 @@ OKO_API void oko_poll_events(oko_Window* win) {
             }
             else if (type == 12)
             {
-                unsigned long modifierFlags =
-                    (unsigned long)msg(event, "modifierFlags");
+                unsigned long modifierFlags = (unsigned long)msg(event, "modifierFlags");
                 int shift_pressed = (modifierFlags & (1 << 17)) ? 1 : 0;
                 int ctrl_pressed = (modifierFlags & (1 << 18)) ? 1 : 0;
                 int alt_pressed = (modifierFlags & (1 << 19)) ? 1 : 0;
@@ -271,16 +303,32 @@ OKO_API void oko_poll_events(oko_Window* win) {
             else if (type == 5 || type == 6 || type == 7)
             {
                 id contentView = msg(win->pw->wnd, "contentView");
-                CGPoint loc = *(CGPoint*)&objc_msgSend(
-                    event, sel_registerName("locationInWindow"));
-                CGPoint converted =
-                    *(CGPoint*)&msg2(contentView, "convertPoint:fromView:", loc, NULL);
+                CGPoint loc = *(CGPoint*)&objc_msgSend(event, sel_registerName("locationInWindow"));
+                CGPoint converted = *(CGPoint*)&msg2(contentView, "convertPoint:fromView:", loc, NULL);
                 win->mouse.x = (int)converted.x;
                 win->mouse.y = win->height - (int)converted.y;
             }
             else if (type == 14)
             {
                 win->running = 0;
+            }
+            else if (type == 22)
+            {
+                CGFloat deltaX = *(CGFloat*)&msg(event, "scrollingDeltaX");
+                CGFloat deltaY = *(CGFloat*)&msg(event, "scrollingDeltaY");
+                
+                BOOL hasPreciseScrollingDeltas = (BOOL)(long)msg(event, "hasPreciseScrollingDeltas");
+                
+                if (hasPreciseScrollingDeltas)
+                {
+                    win->mouse.scroll_x += (i32)(deltaX / 10.0);
+                    win->mouse.scroll_y += (i32)(deltaY / 10.0);
+                }
+                else
+                {
+                    win->mouse.scroll_x += (i32)deltaX;
+                    win->mouse.scroll_y += (i32)deltaY;
+                }
             }
 
             msg1(app, "sendEvent:", event);
@@ -295,20 +343,23 @@ OKO_API void oko_poll_events(oko_Window* win) {
 
     if (new_width != win->width || new_height != win->height)
     {
-        u32* new_pixels = realloc(win->pixels,
-                                  new_width * new_height * sizeof(u32));
-        if (!new_pixels) {
+        u32* new_pixels = realloc(win->pixels, new_width * new_height * sizeof(u32));
+        if (!new_pixels)
+        {
             log_error("Failed to reallocate pixels buffer");
-        } else {
+        }
+        else
+        {
             win->pixels = new_pixels;
 
-            u32* new_back_buffer = realloc(win->back_buffer,
-                                            new_width * new_height * sizeof(u32));
-            if (!new_back_buffer) {
+            u32* new_back_buffer = realloc(win->back_buffer, new_width * new_height * sizeof(u32));
+            if (!new_back_buffer)
+            {
                 log_error("Failed to reallocate back buffer");
-            } else {
+            }
+            else
+            {
                 win->back_buffer = new_back_buffer;
-
                 win->width = new_width;
                 win->height = new_height;
 #ifdef OKO_LOG_RESIZE
@@ -328,20 +379,17 @@ OKO_API void oko_poll_events(oko_Window* win) {
 
 struct oko_Timer {
     mach_timebase_info_data_t timebase;
-    uint64_t start;
 };
 
-OKO_API oko_Timer* okoshko_timer_create() {
+OKO_API oko_Timer* okoshko_timer_create(void) {
     oko_Timer* timer = malloc(sizeof(oko_Timer));
     mach_timebase_info(&timer->timebase);
-    timer->start = mach_absolute_time();
     return timer;
 }
 
 OKO_API u64 okoshko_timer_now(oko_Timer* timer) {
     uint64_t now = mach_absolute_time();
-    uint64_t elapsed = now - timer->start;
-    return (elapsed * timer->timebase.numer) / (timer->timebase.denom * 1000000);
+    return (now * timer->timebase.numer) / (timer->timebase.denom * 1000000ULL);
 }
 
 OKO_API void okoshko_timer_sleep(u64 ms) {
@@ -349,4 +397,9 @@ OKO_API void okoshko_timer_sleep(u64 ms) {
     ts.tv_sec = ms / 1000;
     ts.tv_nsec = (ms % 1000) * 1000000;
     nanosleep(&ts, NULL);
+}
+
+OKO_API void oko_os_swap_buffers(oko_Window* win) {
+    id contentView = msg(win->pw->wnd, "contentView");
+    msg1(contentView, "setNeedsDisplay:", YES);
 }

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="256mm"
+   height="256mm"
+   viewBox="0 0 256 256"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   sodipodi:docname="logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.70803927"
+     inkscape:cx="58.612568"
+     inkscape:cy="456.18939"
+     inkscape:window-width="2560"
+     inkscape:window-height="1371"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient13"
+       inkscape:collect="always">
+      <stop
+         style="stop-color:#614b3a;stop-opacity:1;"
+         offset="0"
+         id="stop14" />
+      <stop
+         style="stop-color:#594331;stop-opacity:1;"
+         offset="1"
+         id="stop15" />
+    </linearGradient>
+    <filter
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Blur"
+       id="filter10"
+       x="-0.48472855"
+       y="-0.04266667"
+       width="1.9694571"
+       height="1.0853333">
+      <feGaussianBlur
+         stdDeviation="4 4"
+         result="blur"
+         id="feGaussianBlur10" />
+    </filter>
+    <filter
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Blur"
+       id="filter11"
+       x="-0.45810271"
+       y="-0.042666667"
+       width="1.9162054"
+       height="1.0853333">
+      <feGaussianBlur
+         stdDeviation="4 4"
+         result="blur"
+         id="feGaussianBlur11" />
+    </filter>
+    <filter
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Blur"
+       id="filter21"
+       x="-0.043681964"
+       y="-0.043687913"
+       width="1.0873639"
+       height="1.0873758">
+      <feGaussianBlur
+         stdDeviation="4 4"
+         result="blur"
+         id="feGaussianBlur21" />
+    </filter>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient13"
+       id="linearGradient15"
+       x1="8"
+       y1="128"
+       x2="248"
+       y2="128"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(6.7089851e-7)" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:url(#linearGradient15);fill-rule:nonzero;stroke-width:0.293427"
+       id="rect1"
+       width="240"
+       height="240"
+       x="8.000001"
+       y="7.9999981"
+       rx="20"
+       inkscape:label="okoshko frame" />
+    <rect
+       style="fill:#fffeed;fill-opacity:1;stroke-width:0.363717"
+       id="rect2"
+       width="225"
+       height="225"
+       x="15.500001"
+       y="15.499998"
+       rx="20"
+       inkscape:label="Okoshko background" />
+    <g
+       id="g6">
+      <rect
+         style="fill:#000000;fill-opacity:0.303596;stroke-width:0.184603;filter:url(#filter11)"
+         id="rect7"
+         width="20.955999"
+         height="225"
+         x="120"
+         y="15.5"
+         inkscape:label="Balka 1 shadow"
+         transform="matrix(1.418762,0,0,0.99234876,-46.231319,1.9135645)" />
+      <rect
+         style="fill:#000000;fill-opacity:0.303009;stroke-width:0.179461;filter:url(#filter10)"
+         id="rect8"
+         width="19.804899"
+         height="224.99998"
+         x="-153.66643"
+         y="15.639634"
+         transform="matrix(9.7088325e-4,-0.99999953,0.99999961,8.6715335e-4,0,0)"
+         inkscape:label="Balka 2 shadow" />
+    </g>
+    <rect
+       style="fill:#2c2416;fill-opacity:1;stroke-width:0.184603"
+       id="rect3"
+       width="20.955999"
+       height="225"
+       x="117.522"
+       y="15.499998"
+       inkscape:label="Balka 1"
+       rx="4" />
+    <rect
+       style="fill:#2c2416;fill-opacity:1;stroke-width:0.179461"
+       id="rect4"
+       width="19.804899"
+       height="224.99998"
+       x="-137.79141"
+       y="15.624223"
+       transform="matrix(9.7088442e-4,-0.99999953,0.99999962,8.6715369e-4,0,0)"
+       inkscape:label="Balka 2"
+       rx="4" />
+    <path
+       id="rect13"
+       style="fill:#000000;fill-opacity:0.284681;stroke-width:0.363717;filter:url(#filter21)"
+       inkscape:label="Okoshko background"
+       d="m 219.42578,18.146482 c -61.63155,3.82e-4 -123.263465,-9.34e-4 -184.894781,0.0326 -6.871224,0.276678 -13.330325,5.138145 -15.444998,11.663666 -1.296223,3.686322 -0.904986,7.636222 -0.945755,11.466213 0.01665,52.608573 -0.0038,105.217209 0.03057,157.825799 0.0197,7.60416 -0.02729,15.21043 0.03391,22.81328 0.209147,3.33269 1.651314,6.85961 3.881217,9.56173 2.911211,3.64503 7.369925,5.9518 12.019653,6.26817 2.89844,0.2054 5.806451,0.0138 8.709643,0.0755 59.611711,-0.006 119.223971,0.0126 178.835341,-0.0414 2.24273,-0.11583 4.42338,-0.73119 6.35748,-1.65829 4.32593,-2.06589 7.88467,-6.07977 9.15188,-10.79961 0.77437,-2.67622 0.76802,-5.47461 0.69356,-8.26738 -5.2e-4,-60.8948 0.002,-121.790098 -0.0354,-182.684582 -0.35197,-7.394743 -6.01752,-14.229504 -13.29018,-15.772893 -1.66882,-0.395505 -3.38958,-0.536948 -5.10215,-0.482763 z" />
+  </g>
+</svg>

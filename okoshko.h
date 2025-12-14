@@ -25,17 +25,18 @@ typedef struct {
 
 typedef struct {
     u8 keys[256];
+    u8 prev_keys[256];
     u8 ctrl, shift, alt, meta;
 } oko_Keyboard;
 
 typedef struct {
     i32 x, y;
     u8 left, right, middle;
+    i32 scroll_x, scroll_y;
 } oko_Mouse;
 
 typedef struct oko_Timer oko_Timer;
 typedef struct oko_PlatformWindow oko_PlatformWindow;
-typedef struct oko_PlatformAudioSystem oko_PlatformAudioSystem;
 
 typedef struct {
     u8 character;
@@ -56,6 +57,49 @@ typedef struct {
     oko_Glyph* glyphs;
 } oko_Font;
 
+typedef void (*oko_Event_Callback_t)(void*);
+
+typedef enum {
+    // TODO: add events
+    CCCCCCCCCCCCCCCCCCCCCTTT
+} oko_EventT;
+
+typedef struct listener {
+    int event;
+    oko_Event_Callback_t cb;
+    struct listener* next;
+} listener_t;
+
+typedef struct {
+    listener_t* head;
+} event_dispatcher_t;
+
+static inline void ed_init(event_dispatcher_t* d) {
+    d->head = NULL;
+}
+static inline void ed_on(event_dispatcher_t* d, int event, oko_Event_Callback_t cb) {
+    listener_t* l = malloc(sizeof(listener_t));
+    l->event = event;
+    l->cb = cb;
+    l->next = d->head;
+    d->head = l;
+}
+static inline void ed_emit(event_dispatcher_t* d, int event, void* data) {
+    for (listener_t* l = d->head; l; l = l->next)
+    {
+        if (l->event == event) l->cb(data);
+    }
+}
+static inline void ed_free(event_dispatcher_t* d) {
+    while (d->head)
+    {
+        listener_t* tmp = d->head;
+        d->head = d->head->next;
+        free(tmp);
+    }
+}
+
+// TODO: add events
 typedef struct {
     char* title;
     i32 width, height;
@@ -68,7 +112,9 @@ typedef struct {
     oko_Mouse mouse;
     oko_Keyboard keyboard;
 
-    oko_PlatformWindow *pw; // TODO: refactor
+    event_dispatcher_t ed;
+
+    oko_PlatformWindow *pw;
     oko_Timer* timer;
     u64 target_frame_time;
     u64 frame_start_time;
@@ -96,18 +142,10 @@ OKO_API oko_Timer* okoshko_timer_create();
 OKO_API u64 okoshko_timer_now(oko_Timer* timer);
 OKO_API void okoshko_timer_sleep(u64 ms);
 
-// AUDIO STUFF
-OKO_API oko_PlatformAudioSystem* oko_os_audio_create(u64 sample_rate,
-                                               u64 buffer_size);
-OKO_API void oko_os_audio_destroy(oko_PlatformAudioSystem* os_audio);
-OKO_API u64 oko_os_audio_get_available_frames(oko_PlatformAudioSystem* os_audio);
-OKO_API i32 oko_os_audio_submit_buffer(oko_PlatformAudioSystem* os_audio,
-                                       const f32* buffer, u64 n);
-
 // EVENT STUFF & BATCH RENDERING
 OKO_API void oko_os_swap_buffers(oko_Window* win);
-OKO_API void oko_begin_drawing(oko_Window* win);
-OKO_API void oko_end_drawing(oko_Window* win);
+OKO_API void oko_begin_frame(oko_Window* win);
+OKO_API void oko_end_frame(oko_Window* win);
 OKO_API void oko_poll_events(oko_Window* win);
 
 // PIXEL MANIPULATION STUFF
@@ -130,6 +168,7 @@ OKO_API void oko_draw_text(oko_Window* win, const char* text, oko_Font* font,
 // KEYBOARD STUFF
 OKO_API u8 oko_key_down(oko_Window* win, u8 key);
 OKO_API u8 oko_key_pressed(oko_Window* win, u8 key);
+OKO_API void oko_key_reset(oko_Window* win, u8 key);
 OKO_API u8 oko_mouse_down(oko_Window* win, u8 button);
 
 // TIME STUFF
