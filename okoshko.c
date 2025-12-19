@@ -1,9 +1,13 @@
+// TODO: implement
 #define OKO_TEMP_ALLOCATOR_IMPLEMENTATION
 #include "okoshko.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __SSE2__
+#include <emmintrin.h>
+#endif
 
 // TODO: use oko_error everywhere
 
@@ -84,8 +88,20 @@ OKO_API void oko_end_frame(oko_Window* win) {
 }
 
 OKO_API void oko_clear(oko_Window* win, u32 color) {
-    memset(win->back_buffer, color, win->width * win->height * sizeof(u32));
+    u32* ptr = win->back_buffer;
+    u32 count = win->width * win->height;
+#ifdef __SSE2__
+    __m128i color_vec = _mm_set1_epi32(color);
+    for (u32 i = 0; i < count; i += 4) {
+        _mm_storeu_si128((__m128i*)&ptr[i], color_vec);
+    }
+#else
+    for (u32 i = 0; i < count; i++) {
+        ptr[i] = color;
+    }
+#endif
 }
+
 
 OKO_API void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color) {
     if (x >= 0 && x < win->width && y >= 0 && y < win->height)

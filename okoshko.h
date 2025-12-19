@@ -61,7 +61,7 @@ typedef void (*oko_Event_Callback_t)(void*);
 
 typedef enum {
     // TODO: add events
-    CCCCCCCCCCCCCCCCCCCCCTTT
+    OKO_NO_EVENT
 } oko_EventT;
 
 typedef struct listener {

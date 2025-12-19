@@ -56,7 +56,7 @@ int main() {
     oko_Window* win = oko_create("Example", 800, 600);
     width = &win->width;
     height = &win->height;
-    oko_set_fps(win, 60);
+    oko_set_fps(win, 6000);
     #define N (128)
 
     struct Ball balls[N] = {0};

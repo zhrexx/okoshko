@@ -1,11 +1,12 @@
 #include "../okoshko.h"
-#define _DEFAULT_SOURCE 1
 #include <string.h>
 #include <locale.h>
 #include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
+#include <unistd.h>
+#include <time.h>
 
 struct oko_PlatformWindow {
     Display* dpy;
@@ -322,8 +323,8 @@ OKO_API u64 okoshko_timer_now(oko_Timer* timer) {
 
 OKO_API void okoshko_timer_sleep(u64 ms) {
     struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000;
+    ts.tv_sec = (long)ms / 1000;
+    ts.tv_nsec = (long)(ms % 1000) * 1000000;
     nanosleep(&ts, NULL);
 }
 

@@ -16,8 +16,9 @@ oko_Input task_input;
 typedef struct {
     const char *goal; 
     u64 timestamp; // start
-} Streak; 
+} Streak;
 
+const int FONT_WIDTH = 8;
 static Streak streaks[256]; // TODO: maybe extend
 static u64 streak_count = 0;
 
@@ -73,6 +74,8 @@ void draw(oko_Window* win, oko_Font *f) {
         oko_clear(win, 0xFF202020);
         oko_draw_text(win, "Streaker :)", f, 20, 20,
                         2.0f, 0xFFFFFFFF);
+
+        oko_draw_text(win, oko_format("FPS: %05d", oko_get_fps(win)), f, win->width - (FONT_WIDTH*2)*12+10, 20, 2.0f, 0xFFFFFFFF);
         
         oko_draw_text(win, "ENTER. Add new Goal", f, 20, 50,
                         2.0f, 0xFFFFFFFF);
@@ -155,7 +158,7 @@ int main() {
     oko_init();
     oko_temp_allocator* ta = oko_get_temp_allocator();
     oko_Window* win = oko_create("Streaker =)", 800, 600);
-    oko_set_fps(win, 60);
+    oko_set_fps(win, 6000);
     task_input = oko_input_create(20, 160, 400, 40, f);
     task_input.placeholder = "Enter your goal...";
 
