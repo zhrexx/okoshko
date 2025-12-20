@@ -33,3 +33,6 @@
 #define OKO_MOUSE_LEFT 1
 #define OKO_MOUSE_RIGHT 2
 #define OKO_MOUSE_MIDDLE 3
+
+#define OKO_PROFILE_START(name) u64 _prof_##name = oko_time_ms(win)
+#define OKO_PROFILE_END(name) printf(#name ": %llu ms\n", oko_time_ms(win) - _prof_##name)

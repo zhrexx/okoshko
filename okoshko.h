@@ -150,7 +150,7 @@ OKO_API void oko_poll_events(oko_Window* win);
 
 // PIXEL MANIPULATION STUFF
 OKO_API void oko_clear(oko_Window* win, u32 color);
-OKO_API void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color);
+OKO_API inline void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color);
 OKO_API u32 oko_get_pixel(oko_Window* win, i32 x, i32 y);
 
 // DRAW STUFF

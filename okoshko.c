@@ -1,4 +1,4 @@
-// TODO: implement
+// TODO: improve rendering (cached rendering) (make faster)
 #define OKO_TEMP_ALLOCATOR_IMPLEMENTATION
 #include "okoshko.h"
 
@@ -7,6 +7,10 @@
 #include <string.h>
 #ifdef __SSE2__
 #include <emmintrin.h>
+#endif
+
+#ifdef __AVX2__
+#include <immintrin.h>
 #endif
 
 // TODO: use oko_error everywhere
@@ -90,24 +94,38 @@ OKO_API void oko_end_frame(oko_Window* win) {
 OKO_API void oko_clear(oko_Window* win, u32 color) {
     u32* ptr = win->back_buffer;
     u32 count = win->width * win->height;
-#ifdef __SSE2__
-    __m128i color_vec = _mm_set1_epi32(color);
-    for (u32 i = 0; i < count; i += 4) {
-        _mm_storeu_si128((__m128i*)&ptr[i], color_vec);
+    i32 i = 0;
+
+#if defined(__AVX2__)
+    __m256i color_vec = _mm256_set1_epi32(color);
+
+    for (; i + 8 <= count; i += 8) {
+        _mm256_storeu_si256((__m256i*)&ptr[i], color_vec);
     }
-#else
-    for (u32 i = 0; i < count; i++) {
-        ptr[i] = color;
+
+#if defined(__SSE2__)
+    __m128i color_vec_sse = _mm_set1_epi32(color);
+    for (; i + 4 <= count; i += 4) {
+        _mm_storeu_si128((__m128i*)&ptr[i], color_vec_sse);
     }
 #endif
+
+#elif defined(__SSE2__)
+    __m128i color_vec = _mm_set1_epi32(color);
+
+    for (; i + 4 <= count; i += 4) {
+        _mm_storeu_si128((__m128i*)&ptr[i], color_vec);
+    }
+#endif
+
+    for (; i < count; i++) {
+        ptr[i] = color;
+    }
 }
 
-
-OKO_API void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color) {
+OKO_API inline void oko_set_pixel(oko_Window* win, i32 x, i32 y, u32 color) {
     if (x >= 0 && x < win->width && y >= 0 && y < win->height)
-    {
         win->back_buffer[y * win->width + x] = color;
-    }
 }
 
 OKO_API u32 oko_get_pixel(oko_Window* win, i32 x, i32 y) {
@@ -124,26 +142,75 @@ OKO_API void oko_fill_rect(oko_Window* win, oko_Rect rect, u32 color) {
     i32 x1 = rect.x + rect.w > win->width ? win->width : rect.x + rect.w;
     i32 y1 = rect.y + rect.h > win->height ? win->height : rect.y + rect.h;
 
-    for (i32 y = y0; y < y1; y++)
-    {
-        for (i32 x = x0; x < x1; x++)
-        {
-            win->back_buffer[y * win->width + x] = color;
+    for (i32 y = y0; y < y1; y++) {
+        u32* row = &win->back_buffer[y * win->width + x0];
+        i32 count = x1 - x0;
+        i32 i = 0;
+
+#ifdef __AVX2__
+        __m256i color_vec = _mm256_set1_epi32(color);
+        for (; i + 8 <= count; i += 8) {
+            _mm256_storeu_si256((__m256i*)&row[i], color_vec);
+        }
+#endif
+
+#if defined(__SSE2__) && !defined(__AVX2__)
+        __m128i color_vec = _mm_set1_epi32(color);
+        for (; i + 4 <= count; i += 4) {
+            _mm_storeu_si128((__m128i*)&row[i], color_vec);
+        }
+#endif
+
+        for (; i < count; i++) {
+            row[i] = color;
         }
     }
 }
 
-OKO_API void oko_fill_circle(oko_Window* win, i32 cx, i32 cy, i32 radius,
-                                u32 color) {
-    for (i32 y = -radius; y <= radius; y++)
-    {
-        for (i32 x = -radius; x <= radius; x++)
-        {
-            if (x * x + y * y <= radius * radius)
-            {
-                oko_set_pixel(win, cx + x, cy + y, color);
-            }
+OKO_API void oko_fill_circle(oko_Window* win, i32 cx, i32 cy, i32 radius, u32 color) {
+    i32 y_start = cy - radius < 0 ? -cy + radius : -radius;
+    i32 y_end = cy + radius >= win->height ? win->height - cy - 1 : radius;
+
+    for (i32 y = y_start; y <= y_end; y++) {
+        i32 y2 = y * y;
+        i32 r2 = radius * radius;
+        i32 x_width = 0;
+
+        while (x_width * x_width + y2 <= r2) {
+            x_width++;
         }
+        x_width--;
+
+        i32 x_start = cx - x_width < 0 ? 0 : cx - x_width;
+        i32 x_end = cx + x_width >= win->width ? win->width - 1 : cx + x_width;
+
+        u32* row = &win->back_buffer[(cy + y) * win->width + x_start];
+        i32 count = x_end - x_start + 1;
+
+#ifdef __AVX2__
+        __m256i color_vec = _mm256_set1_epi32(color);
+        i32 i = 0;
+        for (; i + 8 <= count; i += 8)
+        {
+            _mm256_storeu_si256((__m256i*)&row[i], color_vec);
+        }
+        __m128i color_vec_sse = _mm_set1_epi32(color);
+        for (; i < count; i++)
+            _mm_storeu_si128((__m128i*)&row[i], color_vec_sse);
+#elif __SSE2__
+        __m128i color_vec = _mm_set1_epi32(color);
+        i32 i = 0;
+        for (; i + 4 <= count; i += 4) {
+            _mm_storeu_si128((__m128i*)&row[i], color_vec);
+        }
+        for (; i < count; i++) {
+            row[i] = color;
+        }
+#else
+        for (i32 i = 0; i < count; i++) {
+            row[i] = color;
+        }
+#endif
     }
 }
 
